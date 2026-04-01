@@ -11,10 +11,16 @@
 
         <!-- 主要操作按钮组 -->
         <div class="button-group">
-          <button class="action-btn" @click="fetchNonMinimizedWindows" :disabled="isRunning">
-            <span class="btn-text">捕获窗口</span>
-            <kbd class="shortcut-key">Alt+C</kbd>
-          </button>
+          <div>
+            <button class="action-btn" @click="openModal" :disabled="loading">
+              <span class="btn-text">捕获窗口</span>
+              <kbd class="shortcut-key">Alt+C</kbd>
+            </button>
+            <ListModal v-model:visible="showModal"
+                       title="请选择窗口"
+                       :options="windows"
+                       @select="handleSelect" />
+          </div>
 
           <button class="action-btn primary" @click="toggleRun" :class="{ running: isRunning }">
             <span class="btn-text">{{ isRunning ? '停止' : '启动' }}</span>
@@ -60,95 +66,66 @@
         </div>
       </aside>
 
-      <!-- 右侧操作列表区 -->
+      <!-- 右侧区域：动态切换列表 / 添加页面 -->
       <main class="actions-panel">
-        <div class="panel-header">
-          <h3>执行步骤列表</h3>
-          <span class="step-count">{{ actionItems.length }} 个步骤</span>
-        </div>
-
-        <!-- 操作列表 -->
-        <div class="action-list-container">
-          <ul class="action-list">
-            <li
-                v-for="(item, index) in actionItems"
-                :key="item.id"
-                class="action-item"
-                :class="{ selected: selectedIndex === index }"
-                @click="selectItem(index)"
-            >
-              <span class="item-index">{{ index + 1 }}</span>
-              <span class="item-content">{{ item.name }}</span>
-              <button
-                  class="item-delete"
-                  @click.stop="deleteSingleItem(index)"
-                  :disabled="isRunning"
-                  title="删除此项"
-              >✕</button>
-            </li>
-          </ul>
-          <div v-if="actionItems.length === 0" class="empty-list">
-            <span>📭 暂无步骤，点击上方“捕获窗口”或使用添加栏创建</span>
-          </div>
-        </div>
-
-        <!-- 列表控制栏 (添加 / 删除 / 上下移动) -->
-        <div class="control-bar">
-          <div class="add-section">
-            <input
-                type="text"
-                v-model="newActionName"
-                placeholder="输入新步骤名称..."
-                :disabled="isRunning"
-                @keyup.enter="addAction"
-            />
-            <button class="ctrl-btn add-btn" @click="addAction" :disabled="isRunning">➕ 添加</button>
-          </div>
-          <div class="move-delete-group">
-            <button class="ctrl-btn" @click="moveUp" :disabled="isRunning || selectedIndex === null || selectedIndex === 0">⬆ 上移</button>
-            <button class="ctrl-btn" @click="moveDown" :disabled="isRunning || selectedIndex === null || selectedIndex === actionItems.length - 1">⬇ 下移</button>
-            <button class="ctrl-btn delete-btn" @click="deleteSelected" :disabled="isRunning || selectedIndex === null">🗑 删除</button>
-          </div>
-        </div>
+        <component
+            :is="viewMode === 'list' ? EventList : AddEvent"
+            :action-items="actionItems"
+            :selected-index="selectedIndex"
+            :is-running="isRunning"
+            @select-item="selectItem"
+            @delete-item="deleteSingleItem"
+            @move-up="moveUp"
+            @move-down="moveDown"
+            @switch-to-add="viewMode = 'add'"
+            @add-event="addActionItem"
+            @cancel="viewMode = 'list'"
+        />
       </main>
     </div>
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, onUnmounted } from 'vue'
-import {invoke} from "@tauri-apps/api/core";
+<script setup lang="ts">
+import { ref, onUnmounted } from 'vue'
+import { invoke } from "@tauri-apps/api/core";
+import ListModal from "./template/ListModal.vue";
+import EventList from "./template/EventList.vue";
+import AddEvent from "./template/AddEvent.vue";
 
-// ---------- 状态定义 ----------
-const isRunning = ref(false)           // 启动/停止状态
-const currentMode = ref('sync')       // 'sync' 同步模式 / 'sequence' 序列模式
-const actionItems = ref([])           // 操作列表 { id, name }
-const selectedIndex = ref(null)       // 当前选中项的索引
-const newActionName = ref('')          // 添加输入框的值
+// ---------- 类型定义 ----------
+import {km_event, sWindow} from "./types/types.ts";
+import {formatKmEvent} from "./utils/utils.ts";
 
-// 日志区域 (用于显示执行动作)
-const logs = ref([])
+// ---------- 状态 ----------
+const isRunning = ref(false)
+const currentMode = ref('sync')
+const actionItems = ref<km_event[]>([])
+const selectedIndex = ref<number>()
+const showModal = ref(false)
+const windows = ref<sWindow[]>([])
+const loading = ref<boolean>(false)
+const error = ref<string | null>(null)
+const logs = ref<string[]>([])
+const viewMode = ref<'list' | 'add'>('list')   // 右侧视图模式
 
-// 执行器控制 (用于序列模式的异步中断)
-let sequenceTimer = null
+// 执行器控制
+let sequenceTimer: number | null = null
 let isSequenceActive = false
 
-// ---------- 辅助函数 ----------
-// 添加一条日志 (自动保留最近20条)
-const addLog = (message) => {
+// ---------- 日志 ----------
+const addLog = (message: string) => {
   logs.value.unshift(message)
   if (logs.value.length > 20) logs.value.pop()
 }
 
-// 模拟“执行一个操作” (这里仅展示日志)
-const executeAction = async (item, index) => {
-  addLog(`✅ 执行: ${item.name} (步骤 ${index + 1})`)
-  // 模拟耗时操作，增加真实感 (用于序列模式延时)
+// ---------- 执行模拟 ----------
+const executeAction = async (item: km_event, index: number) => {
+  addLog(`✅ 执行: ${formatKmEvent(item)} (步骤 ${index + 1})`)
   return new Promise(resolve => setTimeout(resolve, 600))
 }
 
-// ---------- 执行核心 (根据模式) ----------
-// 停止当前所有执行
+// ---------- 执行模式 ----------
 const stopExecution = () => {
   if (sequenceTimer) {
     clearTimeout(sequenceTimer)
@@ -158,23 +135,20 @@ const stopExecution = () => {
   addLog('⏹️ 执行已停止')
 }
 
-// 同步模式: 并发/顺序执行所有动作 (这里按顺序快速执行，因为是同步概念，展示同时触发效果)
 const runSyncMode = async () => {
   addLog(`🔄 同步模式启动，共 ${actionItems.value.length} 个动作`)
   for (let i = 0; i < actionItems.value.length; i++) {
-    // 如果在执行过程中被外部停止则中断
     if (!isRunning.value) break
     await executeAction(actionItems.value[i], i)
   }
   if (isRunning.value) {
     addLog('🏁 同步模式执行完毕')
-    stopRunningState()   // 执行完毕自动转为停止状态
+    stopRunningState()
   } else {
     addLog('⚠️ 同步模式被中途停止')
   }
 }
 
-// 序列模式: 递归延时执行，可随时停止
 const runSequenceMode = () => {
   let currentIndex = 0
   addLog(`📋 序列模式启动，逐项执行 (间隔0.6s)`)
@@ -184,15 +158,12 @@ const runSequenceMode = () => {
     if (!isRunning.value || !isSequenceActive || currentIndex >= actionItems.value.length) {
       if (currentIndex >= actionItems.value.length && isRunning.value) {
         addLog('🏁 序列模式执行完毕')
-        stopRunningState()   // 完成后自动停止
+        stopRunningState()
       } else if (!isRunning.value) {
         addLog('⏸️ 序列模式已被停止')
       }
       return
     }
-    const item = actionItems.value[currentIndex]
-    addLog(`▶️ 执行: ${item.name} (${currentIndex+1}/${actionItems.value.length})`)
-    // 模拟执行耗时，结束后继续下一步
     sequenceTimer = setTimeout(() => {
       currentIndex++
       step()
@@ -201,7 +172,6 @@ const runSequenceMode = () => {
   step()
 }
 
-// 启动总控
 const startRunning = () => {
   if (actionItems.value.length === 0) {
     addLog('⚠️ 无法启动: 操作列表为空，请先添加步骤')
@@ -216,7 +186,6 @@ const startRunning = () => {
   }
 }
 
-// 停止执行并重置运行状态
 const stopRunningState = () => {
   if (isRunning.value) {
     isRunning.value = false
@@ -224,162 +193,137 @@ const stopRunningState = () => {
   }
 }
 
-// 切换启动/停止按钮
 const toggleRun = () => {
   if (isRunning.value) {
-    // 停止
     stopRunningState()
     addLog('⏸️ 用户手动停止执行')
   } else {
-    // 启动
     isRunning.value = true
     startRunning()
   }
 }
 
-// 设置模式 (仅在停止状态下可修改)
-const setMode = (mode) => {
+const setMode = (mode: string) => {
   if (!isRunning.value) {
     currentMode.value = mode
     addLog(`⚙️ 切换至${mode === 'sync' ? '同步模式' : '序列模式'}`)
   }
 }
 
-// ---------- 右侧列表操作 (运行时禁用) ----------
-// 添加新动作
-const addAction = () => {
-  if (isRunning.value) return
-  const name = newActionName.value.trim()
-  if (!name) {
-    addLog('⚠️ 步骤名称不能为空')
-    return
-  }
-  const newItem = {
-    id: Date.now() + Math.random(),
-    name: name
-  }
-  actionItems.value.push(newItem)
-  newActionName.value = ''
-  addLog(`📌 添加步骤: ${name}`)
-  // 如果之前没有选中项，可以默认选中新添加项（可选）
+// ---------- 动作列表操作 ----------
+// 新增动作（由 AddEvent 调用）
+const addActionItem = (newEvent: km_event) => {
+  actionItems.value.push(newEvent)
+  addLog(`📌 添加步骤: ${formatKmEvent(newEvent)}`)
   if (actionItems.value.length === 1) selectedIndex.value = 0
+  // 添加后切回列表视图
+  viewMode.value = 'list'
 }
 
-// 删除单个项 (通过列表项上的删除按钮)
-const deleteSingleItem = (index) => {
+const deleteSingleItem = (index: number) => {
   if (isRunning.value) return
   if (index >= 0 && index < actionItems.value.length) {
-    const removed = actionItems.value[index].name
+    const removed = actionItems.value[index]
     actionItems.value.splice(index, 1)
-    addLog(`❌ 删除步骤: ${removed}`)
-    // 调整选中索引
+    addLog(`❌ 删除步骤: ${formatKmEvent(removed)}`)
     if (actionItems.value.length === 0) {
-      selectedIndex.value = null
+      selectedIndex.value = undefined
     } else if (selectedIndex.value === index) {
       selectedIndex.value = index >= actionItems.value.length ? index - 1 : index
-    } else if (selectedIndex.value > index) {
+    } else if (selectedIndex.value && selectedIndex.value > index) {
       selectedIndex.value--
     }
   }
 }
 
-// 删除当前选中的项
-const deleteSelected = () => {
-  if (isRunning.value || selectedIndex.value === null) return
-  deleteSingleItem(selectedIndex.value)
+/**
+ * 移动指定索引的项向上一位
+ * @param index 要移动的项的索引
+ */
+const moveUp = (index: number) => {
+  if (isRunning.value) return;
+  if (index <= 0 || index >= actionItems.value.length) return;
+  const temp = actionItems.value[index];
+  actionItems.value[index] = actionItems.value[index - 1];
+  actionItems.value[index - 1] = temp;
+  // 如果移动的项是当前选中的项，更新选中索引
+  if (selectedIndex.value === index) {
+    selectedIndex.value = index - 1;
+  } else if (selectedIndex.value === index - 1){
+    selectedIndex.value = index;
+  }
+  addLog(`⬆ 上移步骤: ${formatKmEvent(temp)}`)
+};
+
+/**
+ * 移动指定索引的项向下一位
+ * @param index 要移动的项的索引
+ */
+const moveDown = (index: number) => {
+  if (isRunning.value) return;
+  if (index < 0 || index >= actionItems.value.length - 1) return;
+  const temp = actionItems.value[index];
+  actionItems.value[index] = actionItems.value[index + 1];
+  actionItems.value[index + 1] = temp;
+  if (selectedIndex.value === index) {
+    selectedIndex.value = index + 1;
+  } else if (selectedIndex.value === index + 1){
+    selectedIndex.value = index;
+  }
+  addLog(`⬇ 下移步骤: ${formatKmEvent(temp)}`)
 }
 
-// 上移选中项
-const moveUp = () => {
-  if (isRunning.value || selectedIndex.value === null || selectedIndex.value === 0) return
-  const idx = selectedIndex.value
-  const temp = actionItems.value[idx]
-  actionItems.value[idx] = actionItems.value[idx - 1]
-  actionItems.value[idx - 1] = temp
-  selectedIndex.value = idx - 1
-  addLog(`⬆ 上移步骤: ${temp.name}`)
-}
-
-// 下移选中项
-const moveDown = () => {
-  if (isRunning.value || selectedIndex.value === null || selectedIndex.value === actionItems.value.length - 1) return
-  const idx = selectedIndex.value
-  const temp = actionItems.value[idx]
-  actionItems.value[idx] = actionItems.value[idx + 1]
-  actionItems.value[idx + 1] = temp
-  selectedIndex.value = idx + 1
-  addLog(`⬇ 下移步骤: ${temp.name}`)
-}
-
-// 选中列表项
-const selectItem = (index) => {
+const selectItem = (index: number) => {
   if (isRunning.value) return
   selectedIndex.value = index
 }
 
-// 捕获窗口 (模拟添加窗口标题)
-const captureWindow = () => {
-  if (isRunning.value) {
-    addLog('⛔ 运行时无法捕获窗口')
-    return
-  }
-  // 模拟捕获窗口，弹出简易输入框让用户输入窗口名称 (更贴近真实捕获体验)
-  const windowTitle = prompt('请输入捕获到的窗口标题/标识', '记事本 - 无标题')
-  if (windowTitle && windowTitle.trim()) {
-    const newStep = {
-      id: Date.now() + Math.random(),
-      name: `[窗口] ${windowTitle.trim()}`
-    }
-    actionItems.value.push(newStep)
-    addLog(`🎯 捕获窗口: ${windowTitle.trim()} 已添加至步骤列表`)
-    if (actionItems.value.length === 1) selectedIndex.value = 0
-  } else if (windowTitle !== null) {
-    addLog('⚠️ 捕获窗口名称无效，未添加')
-  }
-}
-
-// 设置按钮 (模拟)
+// ---------- 其他功能 ----------
 const openSettings = () => {
   addLog('⚙️ 设置面板 (演示版本，暂无详细配置)')
   alert('设置功能开发中\n快捷键绑定、主题切换等高级配置敬请期待~')
 }
 
-// 组件销毁前清理定时器
-onUnmounted(() => {
-  if (sequenceTimer) clearTimeout(sequenceTimer)
-})
-
-// 测试获取所有窗口
 async function fetchNonMinimizedWindows() {
   try {
-    const windows = await invoke('get_windows');
+    windows.value = await invoke<sWindow[]>('get_windows');
     console.log('非最小化窗口列表:', windows);
-
-    // 处理窗口数据
-    windows.forEach(win => {
+    windows.value.forEach(win => {
       console.log(`窗口标题: ${win.title}, 窗口句柄: ${win.hwnd}`);
     });
   } catch (error) {
     console.error('获取窗口列表时出错:', error);
+  } finally {
+    loading.value = false;
   }
 }
 
-// 测试获取当前窗口
-async function fetchCurrentWindow() {
-  try {
-    const window = await invoke('get_current_window');
-    console.log('当前窗口:', window);
-
-    // 处理窗口数据
-    console.log(`窗口标题: ${window.title}, 窗口句柄: ${window.handle}`);
-  } catch (error) {
-    console.error('获取失败:',error);
-    }
+const openModal = async () => {
+  windows.value = [];
+  error.value = null;
+  await fetchNonMinimizedWindows();
+  if (!error.value && windows.value.length > 0) {
+    showModal.value = true;
+  } else if (windows.value.length === 0 && !error.value) {
+    console.warn('生成的列表为空')
+    addLog("生成列表为空");
+  } else {
+    console.error(error)
+  }
 }
+
+const handleSelect = async (item: sWindow) => {
+  console.log(item);
+  addLog(`选择窗口: ${item.title}`);
+}
+
+onUnmounted(() => {
+  if (sequenceTimer) clearTimeout(sequenceTimer)
+})
 </script>
 
 <style scoped>
-/* 全局重置与柔和基调 */
+/* 左侧面板样式及全局布局保持不变，右侧面板样式只保留外层容器 */
 * {
   margin: 0;
   padding: 0;
@@ -410,7 +354,6 @@ async function fetchCurrentWindow() {
   transition: all 0.2s ease;
 }
 
-/* 左侧操作区 精致玻璃质感 */
 .operation-panel {
   width: 320px;
   background: rgba(255,255,255,0.9);
@@ -517,7 +460,6 @@ async function fetchCurrentWindow() {
   font-size: 1.1rem;
 }
 
-/* 模式切换按钮组 */
 .mode-switch-group {
   display: flex;
   gap: 12px;
@@ -551,7 +493,6 @@ async function fetchCurrentWindow() {
   cursor: not-allowed;
 }
 
-/* 状态区域 + 日志 */
 .status-area {
   margin-top: auto;
   background: #f1f4f9;
@@ -614,7 +555,7 @@ async function fetchCurrentWindow() {
   padding: 12px 0;
 }
 
-/* 右侧操作列表 现代简约 */
+/* 右侧外层容器样式（保持背景和间距） */
 .actions-panel {
   flex: 1;
   display: flex;
@@ -622,189 +563,7 @@ async function fetchCurrentWindow() {
   background: white;
   padding: 1.8rem 2rem;
   gap: 1.2rem;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  border-bottom: 2px solid #eef2ff;
-  padding-bottom: 0.6rem;
-}
-
-.panel-header h3 {
-  font-weight: 600;
-  font-size: 1.35rem;
-  color: #0f172a;
-}
-
-.step-count {
-  font-size: 0.8rem;
-  background: #eef2ff;
-  padding: 4px 10px;
-  border-radius: 30px;
-  color: #2c3e66;
-}
-
-.action-list-container {
-  flex: 1;
   overflow-y: auto;
-  background: #fafcff;
-  border-radius: 20px;
-  border: 1px solid #ecf3fa;
-  padding: 8px 4px;
-}
-
-.action-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.action-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: white;
-  border-radius: 16px;
-  transition: all 0.15s;
-  cursor: pointer;
-  border: 1px solid #eef2ff;
-}
-
-.action-item:hover {
-  background: #f8fafc;
-  border-color: #cbdff2;
-}
-
-.action-item.selected {
-  background: #eef4ff;
-  border-left: 4px solid #2c3e66;
-  border-radius: 12px;
-}
-
-.item-index {
-  font-weight: 600;
-  width: 32px;
-  color: #5b6e8c;
-  font-size: 0.8rem;
-}
-
-.item-content {
-  flex: 1;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #1e293b;
-}
-
-.item-delete {
-  background: none;
-  border: none;
-  font-size: 1.1rem;
-  cursor: pointer;
-  color: #94a3b8;
-  border-radius: 30px;
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.1s;
-}
-
-.item-delete:hover:not(:disabled) {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.item-delete:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.empty-list {
-  text-align: center;
-  padding: 2rem;
-  color: #94a3b8;
-  font-size: 0.85rem;
-}
-
-/* 控制栏 */
-.control-bar {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  align-items: center;
-  background: #f9fbfd;
-  padding: 12px 16px;
-  border-radius: 40px;
-  margin-top: 4px;
-}
-
-.add-section {
-  display: flex;
-  gap: 8px;
-  flex: 2;
-  min-width: 180px;
-}
-
-.add-section input {
-  flex: 1;
-  padding: 8px 14px;
-  border-radius: 40px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  font-size: 0.85rem;
-  outline: none;
-  transition: 0.2s;
-}
-
-.add-section input:focus {
-  border-color: #2c3e66;
-  box-shadow: 0 0 0 2px rgba(44, 62, 102, 0.2);
-}
-
-.move-delete-group {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.ctrl-btn {
-  background: white;
-  border: 1px solid #dee5ed;
-  padding: 6px 16px;
-  border-radius: 40px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  color: #2c3e66;
-}
-
-.ctrl-btn:hover:not(:disabled) {
-  background: #eef2ff;
-  border-color: #b9c8e5;
-  transform: scale(0.97);
-}
-
-.ctrl-btn.delete-btn:hover:not(:disabled) {
-  background: #ffefef;
-  border-color: #f3c4c4;
-  color: #b91c1c;
-}
-
-.ctrl-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.add-btn {
-  background: #eef2ff;
-  border-color: #cddef5;
-  font-weight: 600;
 }
 
 /* 滚动条美观 */

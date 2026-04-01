@@ -10,7 +10,7 @@ mod logic;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![logic::window_capture::get_windows])
+        .invoke_handler(tauri::generate_handler![logic::window_capture::get_windows,logic::api::keyboard_api::code_to_vk])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

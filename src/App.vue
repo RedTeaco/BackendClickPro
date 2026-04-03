@@ -108,6 +108,7 @@ const loading = ref<boolean>(false)
 const error = ref<string | null>(null)
 const logs = ref<string[]>([])
 const viewMode = ref<'list' | 'add'>('list')   // 右侧视图模式
+const selected_windows = ref<sWindow>()
 
 // 执行器控制
 let sequenceTimer: number | null = null
@@ -313,6 +314,7 @@ const openModal = async () => {
 }
 
 const handleSelect = async (item: sWindow) => {
+  selected_windows.value = item;
   console.log(item);
   addLog(`选择窗口: ${item.title}`);
 }

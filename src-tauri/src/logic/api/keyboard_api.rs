@@ -111,8 +111,7 @@ static KEY_MAP: phf::Map<&'static str, u16> = phf_map! {
     "LaunchApp2" => VK_LAUNCH_APP2.0,
 };
 
-#[tauri::command]
-pub fn code_to_vk(code: &str) -> Option<u16> {
+fn code_to_vk(code: &str) -> Option<u16> {
     if let Some(&vk) = KEY_MAP.get(code) {
         return Some(vk);
     }
@@ -134,30 +133,32 @@ pub fn code_to_vk(code: &str) -> Option<u16> {
 }
 
 
-fn keyboard_down(hwnd: HWND, key_code: usize) -> windows::core::Result<()> {
+pub(crate) fn keyboard_down(hwnd: HWND, key_code: &str) -> windows::core::Result<()> {
     if hwnd.0 == std::ptr::null_mut() {
         eprintln!("Error: Invalid window handle");
         return Ok(());
     }
+    let vk = code_to_vk(key_code);
     unsafe {
-        PostMessageW(hwnd.into(), WM_KEYDOWN, WPARAM(key_code), LPARAM(0)).expect("failed to post keydown message");
+        PostMessageW(hwnd.into(), WM_KEYDOWN, WPARAM(vk.unwrap() as usize), LPARAM(0)).expect("failed to post keydown message");
     }
     Ok(())
 }
 
-fn keyboard_up(hwnd: HWND, key_code: usize) -> windows::core::Result<()> {
+pub(crate) fn keyboard_up(hwnd: HWND, key_code: &str) -> windows::core::Result<()> {
     if hwnd.0 == std::ptr::null_mut() {
         eprintln!("Error: Invalid window handle");
         return Ok(());
     }
+    let vk = code_to_vk(key_code);
     unsafe {
-        PostMessageW(hwnd.into(), WM_KEYUP, WPARAM(key_code), LPARAM(0)).expect("failed to post keyup message");
+        PostMessageW(hwnd.into(), WM_KEYUP, WPARAM(vk.unwrap() as usize), LPARAM(0)).expect("failed to post keyup message");
     }
     Ok(())
 }
 
-fn keyboard_click(hwnd: HWND, key_code: usize) -> windows::core::Result<()> {
-    keyboard_down(hwnd, key_code)?;
-    keyboard_up(hwnd, key_code)?;
+pub fn keyboard_click(hwnd: HWND, key: &str) -> windows::core::Result<()> {
+    keyboard_down(hwnd, key)?;
+    keyboard_up(hwnd, key)?;
     Ok(())
 }

@@ -1,6 +1,7 @@
+use std::ffi::c_void;
 use windows::core::BOOL;
 use windows::Win32::Foundation::{HWND, LPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowLongW, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, GWL_EXSTYLE, WS_EX_TOOLWINDOW};
+use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowLongW, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow, IsWindowVisible, GWL_EXSTYLE, WS_EX_TOOLWINDOW};
 
 #[derive(Debug, serde::Serialize)]
 pub struct WindowInfo {
@@ -76,4 +77,18 @@ pub fn get_windows() -> Result<Vec<WindowInfo>, String> {
         .collect();
 
     Ok(non_minimized)
+}
+
+pub fn handle_selected_window(hwnd_u: usize) -> Option<HWND> {
+    let hwnd_ptr = hwnd_u as *mut c_void;
+    let hwnd = HWND(hwnd_ptr);
+
+    // 验证窗口有效性
+    if !unsafe { IsWindow(Some(hwnd)) }.as_bool() {
+        return None;
+    }
+
+    // 在此处处理选中的窗口，例如获取窗口截图等
+    return Some(hwnd)
+//TODO: Some解包判断
 }

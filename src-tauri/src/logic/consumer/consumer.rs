@@ -15,7 +15,6 @@ pub struct Consumer {
 impl Consumer {
     pub fn new(name: &str, filter: fn(&InputEvent) -> bool) -> Self {
         let (tx, rx): (Sender<ConsumerCommand>, Receiver<ConsumerCommand>) = mpsc::channel();
-        //TODO : HWND类型无法在线程间安全传递，因此需要使用usize类型，传递后再转换为HWND类型
         let handle = thread::spawn(move || {
             for cmd in rx {
                 match cmd {

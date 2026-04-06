@@ -87,7 +87,7 @@ export const toBackendEvent = (form:FormEvent, hwnd: number): InputEvent => {
         };
     } else {
         return {
-            Key: {
+            Keyboard: {
                 hwnd,
                 action,
                 key: form.key!,

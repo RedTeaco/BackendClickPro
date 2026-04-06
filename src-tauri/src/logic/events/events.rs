@@ -36,7 +36,7 @@ pub enum InputEvent {
         x: Option<i32>,
         y: Option<i32>,
     },
-    Key {
+    Keyboard {
         hwnd: usize,
         key: String,
         action: EventAction,
@@ -45,6 +45,7 @@ pub enum InputEvent {
 
 
 pub fn execute_event(event: &InputEvent, stop_signal: &Arc<AtomicBool>) {
+    println!("Executing event: {:?}", event);
     match event {
         InputEvent::Mouse {hwnd, btn, action,x,y} => {
             let hwnd_ptr = match handle_selected_window(*hwnd) {
@@ -126,7 +127,7 @@ pub fn execute_event(event: &InputEvent, stop_signal: &Arc<AtomicBool>) {
                 }
             }
         },
-        InputEvent::Key {hwnd, key, action} => {
+        InputEvent::Keyboard {hwnd, key, action} => {
             let hwnd_ptr = match handle_selected_window(*hwnd){
                 Some(h) => h,
                 None => {
@@ -210,7 +211,7 @@ pub fn shutdown_event(event: &InputEvent) {
             }
         }
         // 匹配键盘事件，包含窗口句柄和按键信息
-        InputEvent::Key { hwnd, key, .. } => {
+        InputEvent::Keyboard { hwnd, key, .. } => {
             // 尝试获取选中的窗口句柄
             if let Some(hwnd_ptr) = handle_selected_window(*hwnd) {
                 // 执行键盘按键释放操作

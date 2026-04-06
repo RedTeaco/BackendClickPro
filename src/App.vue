@@ -96,15 +96,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
+import {ref, onUnmounted, onMounted} from 'vue'
 import { invoke } from "@tauri-apps/api/core";
 import ListModal from "./template/ListModal.vue";
 import EventList from "./template/EventList.vue";
 import AddEvent from "./template/AddEvent.vue";
 
 // ---------- 类型定义 ----------
-import {FormEvent, InputEvent, sWindow} from "./types/types.ts";
-import {formatEvent, toBackendEvent} from "./utils/utils.ts";
+import {FormEvent, InputEvent, StoredEvent, sWindow} from "./types/types.ts";
+import {formatEvent, storedToFormEvent, toBackendEvent} from "./utils/utils.ts";
 import {listen} from "@tauri-apps/api/event";
 
 // ---------- 状态 ----------
@@ -137,10 +137,11 @@ const loadPersistedData = async () => {
   try {
     // 加载事件列表
     const storedEvents = await invoke<StoredEvent[]>('load_events')
+    console.log('Loaded events:', storedEvents)
     actionItems.value = storedEvents.map((event) => storedToFormEvent(event))
     // 加载快捷键
     const shortcuts = await invoke<any>('load_shortcuts')
-    console.log('Loadded shortcuts:', shortcuts)
+    console.log('Loaded shortcuts:', shortcuts)
   } catch (err) {
     console.error('Failed to load persisted data:', err)
   }
@@ -160,7 +161,7 @@ const saveEventsToPersist = async () => {
 let unlistenCompletion: (() => void) | null = null
 let unlistenError: (() => void) | null = null
 
-onUnmounted(async () => {
+onMounted(async () => {
   await loadPersistedData()
   // 监听执行完成事件
   unlistenCompletion = await listen('execution-completed', () => {

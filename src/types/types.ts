@@ -23,7 +23,7 @@ export type InputEvent =
         }
     }
     | {
-    Key: {
+    Keyboard: {
         hwnd: number;
         key: string;
         action: EventAction; // 不支持Scroll

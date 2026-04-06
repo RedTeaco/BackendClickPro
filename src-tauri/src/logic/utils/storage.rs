@@ -71,14 +71,17 @@ pub fn load_config() -> AppConfig {
     if path.exists() {
         match fs::read_to_string(&path) {
             Ok(content) => {
-                match serde_json::from_str(&content) {
-                    Ok(config) => config,
-                    Err(e) => eprintln!("Failed to parse config: {}", e),
+                if let Ok(config) = serde_json::from_str::<AppConfig>(&content) {
+                    return config;
+                } else {
+                    eprintln!("Failed to parse config file: {}, using default", content);
                 }
+            },
+            Err(e) => {
+            eprintln!("Failed to read config file: {}", e)
             }
-            Err(e) => eprintln!("Failed to read config: {}", e),
         }
-    }
+        }
     AppConfig::default()
 }
 
@@ -109,7 +112,7 @@ pub fn input_event_to_stored(event: &InputEvent) -> StoredEvent {
                 count,
             }
         }
-        InputEvent::Key { hwnd: _, key, action} => {
+        InputEvent::Keyboard { hwnd: _, key, action} => {
             let (action_type, duration_ms, interval_ms, count) = match action {
                 EventAction::Click {interval_ms, count} => {
                     ("click".to_string(), None, *interval_ms, *count)
@@ -122,7 +125,7 @@ pub fn input_event_to_stored(event: &InputEvent) -> StoredEvent {
                 }
             };
             StoredEvent {
-                event_type: "key".to_string(),
+                event_type: "keyboard".to_string(),
                 action_type,
                 button: None,
                 key: Some(key.clone()),

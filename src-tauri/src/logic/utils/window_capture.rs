@@ -79,16 +79,26 @@ pub fn get_windows() -> Result<Vec<WindowInfo>, String> {
     Ok(non_minimized)
 }
 
+/// 处理选中的窗口句柄，返回有效的窗口句柄(类型转换)
+///
+/// # 参数
+/// * `hwnd_u` - 表示窗口句柄的无符号整型数值
+///
+/// # 返回值
+/// 返回一个 `Option<HWND>` 类型的结果，如果窗口有效则返回 `Some(HWND)`，否则返回 `None`
 pub fn handle_selected_window(hwnd_u: usize) -> Option<HWND> {
+    // 将无符号整型转换为窗口指针
     let hwnd_ptr = hwnd_u as *mut c_void;
+    // 创建窗口句柄(HWND)实例
     let hwnd = HWND(hwnd_ptr);
 
-    // 验证窗口有效性
+    // 验证窗口有效性 - 使用Windows API的IsWindow函数检查句柄是否代表一个有效窗口
     if !unsafe { IsWindow(Some(hwnd)) }.as_bool() {
+        // 如果窗口无效，返回None
         return None;
     }
 
     // 在此处处理选中的窗口，例如获取窗口截图等
-    return Some(hwnd)
-//TODO: Some解包判断
+    // 如果窗口有效，返回Some(hwnd)
+    Some(hwnd)
 }

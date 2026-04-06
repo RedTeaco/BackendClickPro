@@ -1,5 +1,5 @@
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_XBUTTONDOWN, WM_XBUTTONUP};
+use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_XBUTTONDOWN, WM_XBUTTONUP};
 
 pub const XBUTTON1: u16 = 0x0001;
 pub const XBUTTON2: u16 = 0x0002;
@@ -57,7 +57,7 @@ pub fn mouse_action(
     // 根据按钮类型和操作类型匹配执行不同的鼠标操作
     match (button, action) {
         // 滚轮操作
-        ("wheel", "scroll") => {
+        ("wheel", _ ) => {
             let delta = delta.unwrap_or(0);
             // 将滚轮偏移量转换为Windows消息格式
             let wparam = WPARAM((((delta as u32) << 16) & 0xFFFF0000) as usize);

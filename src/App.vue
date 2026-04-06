@@ -14,7 +14,7 @@
           <div>
             <button class="action-btn" @click="openModal" :disabled="loading">
               <span class="btn-text">捕获窗口</span>
-              <kbd class="shortcut-key">Alt+C</kbd>
+              <kbd class="shortcut-key">K</kbd>
             </button>
             <ListModal v-model:visible="showModal"
                        title="请选择窗口"
@@ -24,7 +24,7 @@
 
           <button class="action-btn primary" @click="toggleRun" :class="{ running: isRunning }">
             <span class="btn-text">{{ isRunning ? '停止' : '启动' }}</span>
-            <kbd class="shortcut-key">Ctrl+Shift+S</kbd>
+            <kbd class="shortcut-key">F8</kbd>
           </button>
 
           <button class="action-btn" @click="openSettings" :disabled="isRunning">
@@ -52,6 +52,15 @@
             📋 序列模式
           </button>
         </div>
+
+<!--显示当前选中的窗口-->
+
+                  <div v-if="selected_windows" class="selected-window-info">
+                    📌 目标窗口: {{ selected_windows.title }}
+                  </div>
+                  <div v-else class="selected-winddow-info warning">
+                    ⚠️ 请先选择目标窗口
+                  </div>
 
         <!-- 运行状态 & 实时日志 -->
         <div class="status-area">
@@ -94,131 +103,152 @@ import EventList from "./template/EventList.vue";
 import AddEvent from "./template/AddEvent.vue";
 
 // ---------- 类型定义 ----------
-import {km_event, sWindow} from "./types/types.ts";
-import {formatKmEvent} from "./utils/utils.ts";
+import {FormEvent, InputEvent, sWindow} from "./types/types.ts";
+import {formatEvent, toBackendEvent} from "./utils/utils.ts";
+import {listen} from "@tauri-apps/api/event";
 
 // ---------- 状态 ----------
 const isRunning = ref(false)
 const currentMode = ref('sync')
-const actionItems = ref<km_event[]>([])
+const actionItems = ref<FormEvent[]>([])
 const selectedIndex = ref<number>()
 const showModal = ref(false)
 const windows = ref<sWindow[]>([])
 const loading = ref<boolean>(false)
-const error = ref<string | null>(null)
 const logs = ref<string[]>([])
 const viewMode = ref<'list' | 'add'>('list')   // 右侧视图模式
 const selected_windows = ref<sWindow>()
 
-// 执行器控制
-let sequenceTimer: number | null = null
-let isSequenceActive = false
-
 // ---------- 日志 ----------
-const addLog = (message: string) => {
+const addLog = async (message: string) => {
+  // 前端显示
   logs.value.unshift(message)
   if (logs.value.length > 20) logs.value.pop()
-}
-
-// ---------- 执行模拟 ----------
-const executeAction = async (item: km_event, index: number) => {
-  addLog(`✅ 执行: ${formatKmEvent(item)} (步骤 ${index + 1})`)
-  return new Promise(resolve => setTimeout(resolve, 600))
-}
-
-// ---------- 执行模式 ----------
-const stopExecution = () => {
-  if (sequenceTimer) {
-    clearTimeout(sequenceTimer)
-    sequenceTimer = null
-  }
-  isSequenceActive = false
-  addLog('⏹️ 执行已停止')
-}
-
-const runSyncMode = async () => {
-  addLog(`🔄 同步模式启动，共 ${actionItems.value.length} 个动作`)
-  for (let i = 0; i < actionItems.value.length; i++) {
-    if (!isRunning.value) break
-    await executeAction(actionItems.value[i], i)
-  }
-  if (isRunning.value) {
-    addLog('🏁 同步模式执行完毕')
-    stopRunningState()
-  } else {
-    addLog('⚠️ 同步模式被中途停止')
+  // 后端记录
+  try {
+    await invoke('log_message', {message})
+  } catch (err) {
+    console.error('Failed to write log:', err)
   }
 }
 
-const runSequenceMode = () => {
-  let currentIndex = 0
-  addLog(`📋 序列模式启动，逐项执行 (间隔0.6s)`)
-  isSequenceActive = true
-
-  const step = () => {
-    if (!isRunning.value || !isSequenceActive || currentIndex >= actionItems.value.length) {
-      if (currentIndex >= actionItems.value.length && isRunning.value) {
-        addLog('🏁 序列模式执行完毕')
-        stopRunningState()
-      } else if (!isRunning.value) {
-        addLog('⏸️ 序列模式已被停止')
-      }
-      return
-    }
-    sequenceTimer = setTimeout(() => {
-      currentIndex++
-      step()
-    }, 600)
+// ------- 持久化 ---------
+const loadPersistedData = async () => {
+  try {
+    // 加载事件列表
+    const storedEvents = await invoke<StoredEvent[]>('load_events')
+    actionItems.value = storedEvents.map((event) => storedToFormEvent(event))
+    // 加载快捷键
+    const shortcuts = await invoke<any>('load_shortcuts')
+    console.log('Loadded shortcuts:', shortcuts)
+  } catch (err) {
+    console.error('Failed to load persisted data:', err)
   }
-  step()
 }
 
-const startRunning = () => {
-  if (actionItems.value.length === 0) {
-    addLog('⚠️ 无法启动: 操作列表为空，请先添加步骤')
+const saveEventsToPersist = async () => {
+  // 将当前actionItems 转换为后端InputEvent 格式 不包含hwnd并保存
+  const backendEvents: InputEvent[] = actionItems.value.map(item => toBackendEvent(item, 0)) // 保存时hwnd使用占位符
+  try {
+    await invoke('save_events', {events: backendEvents})
+  } catch (err) {
+    console.error('Failed to save events:', err)
+  }
+}
+
+// ------------- 执行相关 ---------------
+let unlistenCompletion: (() => void) | null = null
+let unlistenError: (() => void) | null = null
+
+onUnmounted(async () => {
+  await loadPersistedData()
+  // 监听执行完成事件
+  unlistenCompletion = await listen('execution-completed', () => {
+    isRunning.value = false
+    addLog('✅ 执行完成')
+  })
+  // 监听执行错误事件
+  unlistenError = await listen('execution-error', (event: any) => {
+    isRunning.value = false
+    addLog(`❌ 执行出错: ${event.payload}`)
+  })
+})
+
+onUnmounted(() => {
+  if (unlistenCompletion) unlistenCompletion()
+  if (unlistenError) unlistenError()
+})
+
+const startExecution = async () => {
+  if (!selected_windows.value) {
+    addLog('❌ 未选择目标窗口，请先捕获窗口')
     isRunning.value = false
     return
   }
-  addLog(`🚀 启动执行，模式: ${currentMode.value === 'sync' ? '同步模式' : '序列模式'}`)
-  if (currentMode.value === 'sync') {
-    runSyncMode()
-  } else {
-    runSequenceMode()
-  }
-}
-
-const stopRunningState = () => {
-  if (isRunning.value) {
+  if (actionItems.value.length === 0) {
+    addLog('⚠️ 无动作可执行')
     isRunning.value = false
-    stopExecution()
+    return
+  }
+
+  const backendEvents = actionItems.value.map((item) =>
+      toBackendEvent(item, selected_windows.value?.hwnd!)
+  )
+    try {
+    await invoke('execute_events', {
+      events: backendEvents,
+      mode: currentMode.value,
+    })
+      addLog(`🚀 启动执行，模式: ${currentMode.value === 'sync' ? '同步' : '序列'}`)
+    } catch (err) {
+      addLog(`❌ 启动失败: ${err}`)
+      isRunning.value = false
   }
 }
 
 const toggleRun = () => {
   if (isRunning.value) {
-    stopRunningState()
-    addLog('⏸️ 用户手动停止执行')
+    invoke('stop_execution')
+        .then(() => addLog('⏸️ 用户停止执行'))
+        .catch(console.error)
+    isRunning.value = false
   } else {
+    // 运行时检查窗口
+    if (!selected_windows.value) {
+      addLog('❌ 请先捕获并选择目标窗口')
+      alert('请先点击"捕获窗口"选择目标窗口')
+      return
+    }
+    if (actionItems.value.length === 0 ) {
+      addLog('⚠️ 请先添加执行步骤')
+      alert('请先添加执行步骤')
+      return
+    }
     isRunning.value = true
-    startRunning()
+    startExecution()
   }
 }
 
-const setMode = (mode: string) => {
-  if (!isRunning.value) {
+const setMode = async (mode: string) => {
+  if (isRunning.value) return
+  try {
+    await invoke('set_mode', {mode})
     currentMode.value = mode
     addLog(`⚙️ 切换至${mode === 'sync' ? '同步模式' : '序列模式'}`)
+  } catch (err) {
+    addLog(`切换模式失败: ${err}`)
   }
 }
 
 // ---------- 动作列表操作 ----------
 // 新增动作（由 AddEvent 调用）
-const addActionItem = (newEvent: km_event) => {
+const addActionItem = (newEvent: FormEvent) => {
   actionItems.value.push(newEvent)
-  addLog(`📌 添加步骤: ${formatKmEvent(newEvent)}`)
+  addLog(`📌 添加步骤: ${formatEvent(newEvent)}`)
   if (actionItems.value.length === 1) selectedIndex.value = 0
   // 添加后切回列表视图
   viewMode.value = 'list'
+  saveEventsToPersist() // 持久化保存
 }
 
 const deleteSingleItem = (index: number) => {
@@ -226,7 +256,7 @@ const deleteSingleItem = (index: number) => {
   if (index >= 0 && index < actionItems.value.length) {
     const removed = actionItems.value[index]
     actionItems.value.splice(index, 1)
-    addLog(`❌ 删除步骤: ${formatKmEvent(removed)}`)
+    addLog(`❌ 删除步骤: ${formatEvent(removed)}`)
     if (actionItems.value.length === 0) {
       selectedIndex.value = undefined
     } else if (selectedIndex.value === index) {
@@ -234,6 +264,7 @@ const deleteSingleItem = (index: number) => {
     } else if (selectedIndex.value && selectedIndex.value > index) {
       selectedIndex.value--
     }
+    saveEventsToPersist() // 持久化保存
   }
 }
 
@@ -253,7 +284,8 @@ const moveUp = (index: number) => {
   } else if (selectedIndex.value === index - 1){
     selectedIndex.value = index;
   }
-  addLog(`⬆ 上移步骤: ${formatKmEvent(temp)}`)
+  addLog(`⬆ 上移步骤: ${formatEvent(temp)}`)
+  saveEventsToPersist()
 };
 
 /**
@@ -271,7 +303,8 @@ const moveDown = (index: number) => {
   } else if (selectedIndex.value === index + 1){
     selectedIndex.value = index;
   }
-  addLog(`⬇ 下移步骤: ${formatKmEvent(temp)}`)
+  addLog(`⬇ 下移步骤: ${formatEvent(temp)}`)
+  saveEventsToPersist()
 }
 
 const selectItem = (index: number) => {
@@ -285,43 +318,27 @@ const openSettings = () => {
   alert('设置功能开发中\n快捷键绑定、主题切换等高级配置敬请期待~')
 }
 
-async function fetchNonMinimizedWindows() {
-  try {
-    windows.value = await invoke<sWindow[]>('get_windows');
-    console.log('非最小化窗口列表:', windows);
-    windows.value.forEach(win => {
-      console.log(`窗口标题: ${win.title}, 窗口句柄: ${win.hwnd}`);
-    });
-  } catch (error) {
-    console.error('获取窗口列表时出错:', error);
-  } finally {
-    loading.value = false;
-  }
-}
-
 const openModal = async () => {
   windows.value = [];
-  error.value = null;
-  await fetchNonMinimizedWindows();
-  if (!error.value && windows.value.length > 0) {
-    showModal.value = true;
-  } else if (windows.value.length === 0 && !error.value) {
-    console.warn('生成的列表为空')
-    addLog("生成列表为空");
-  } else {
-    console.error(error)
+  loading.value = true;
+  try {
+    windows.value = await invoke<sWindow[]>('get_windows');
+    if (windows.value.length > 0 ){
+      showModal.value = true;
+    } else {
+      addLog('未找到非最小化窗口')
+    }
+  } catch (err) {
+    addLog(`获取窗口列表失败: ${err}`)
+  } finally {
+    loading.value = false
   }
 }
 
-const handleSelect = async (item: sWindow) => {
+const handleSelect = (item: sWindow) => {
   selected_windows.value = item;
-  console.log(item);
-  addLog(`选择窗口: ${item.title}`);
+  addLog(`✅ 已选择目标窗口: ${selected_windows.value.title} (句柄: ${selected_windows.value.hwnd})`);
 }
-
-onUnmounted(() => {
-  if (sequenceTimer) clearTimeout(sequenceTimer)
-})
 </script>
 
 <style scoped>
@@ -330,6 +347,19 @@ onUnmounted(() => {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+.selected-window-info {
+  background: #eef2ff;
+  border-radius: 20px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  text-align: center;
+  margin-top: 8px;
+}
+.selected-window-info.warning {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .automation-dashboard {

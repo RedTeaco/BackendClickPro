@@ -28,4 +28,9 @@ windows = { version = "0.62.2", features = [
 ] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+dirs = "6.0.0"
+chrono = "0.4.44"
+tar = "0.4.45"
+flate2 = "1.1.9"
+lazy_static = "1.5.0"
 

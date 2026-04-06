@@ -15,7 +15,7 @@
             @click="emit('selectItem',index)"
         >
           <span class="item-index">{{ index + 1 }}</span>
-          <span class="item-content">{{ formatKmEvent(item) }}</span>
+          <span class="item-content">{{ formatEvent(item) }}</span>
           <div class="item-actions">
             <!-- 上移按钮 -->
             <button
@@ -31,7 +31,6 @@
                 :disabled="isRunning || index === actionItems.length - 1"
                 title="下移"
             >⬇</button>
-            <!-- 删除按钮（原 item-delete 样式微调） -->
             <button
                 class="action-icon delete"
                 @click.stop="emit('deleteItem', index)"
@@ -59,13 +58,13 @@
 
 <script setup lang="ts">
 import { defineProps, defineEmits } from 'vue'
-import {km_event} from "../types/types.ts";
-import {formatKmEvent} from "../utils/utils.ts";
+import {FormEvent} from "../types/types.ts";
+import {formatEvent} from "../utils/utils.ts";
 
 // ... 类型定义和 formatKmEvent 函数保持不变（与之前相同）
 
 const props = defineProps<{
-  actionItems: km_event[];
+  actionItems: FormEvent[];
   selectedIndex: number | null;
   isRunning: boolean;
 }>();

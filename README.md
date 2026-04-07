@@ -40,6 +40,6 @@ This template should help get you started developing with Vue 3 and TypeScript i
 - [ ] 前端改为tailwindcss
 - [ ] 鼠标坐标捕捉
 - [ ] 已有序列的修改
-- [ ] 停止事件!! 键盘停止事件存在问题
+- [ ] click的间隔时间问题:键盘的click内置cd,鼠标未内置，但设置的间隔事件也不能过少
 - [ ] 序列模式执行有问题
 - [ ] 热键(快捷键)设置

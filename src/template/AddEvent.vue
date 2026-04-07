@@ -50,7 +50,7 @@
 <!--      长按特有-->
       <div v-if="form.actionType === 'hold'" class="form-group">
         <label>持续时间 (毫秒)</label>
-        <input type="number" v-model.number="form.duration_ms" placeholder="默认10ms" />
+        <input type="number" v-model.number="form.duration_ms" placeholder="默认100ms" />
       </div>
 <!--      滚轮特有-->
       <div v-if="form.actionType === 'scroll'" class="form-group">
@@ -60,7 +60,8 @@
 
       <div class="form-group">
         <label>间隔时间(毫秒)</label>
-        <input type="number" v-model.number="form.interval_ms" placeholder="两次循环之间的间隔"/>
+        <input type="number" v-model.number="form.interval_ms" oninput="if(value<50)value=50" placeholder="两次循环之间的间隔"/>
+        <small>最小值为50</small>
       </div>
 
 <!--      循环次数 不填或小于0表示无限-->
@@ -131,7 +132,7 @@ const saveEvent = () => {
   const newEvent: FormEvent = {
     ...form,
     count: finalCount,
-    interval_ms: form.interval_ms || 0,
+    interval_ms: form.interval_ms>=50 ? form.interval_ms : 50,
   }
   emit('addEvent', newEvent);
 };

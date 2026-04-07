@@ -1,3 +1,5 @@
+use std::thread;
+use std::time::Duration;
 use tauri::utils::assets::phf;
 use tauri::utils::assets::phf::phf_map;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
@@ -132,15 +134,21 @@ fn code_to_vk(code: &str) -> Option<u16> {
         None
 }
 
+fn get_scan_code(vk: u16) -> u32 {
+    unsafe { MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC)}
+}
 
 pub(crate) fn keyboard_down(hwnd: HWND, key_code: &str) -> windows::core::Result<()> {
     if hwnd.0 == std::ptr::null_mut() {
         eprintln!("Error: Invalid window handle");
         return Ok(());
     }
+    println!("[DEBUG][KEYBOARD] Event action: key {} down", key_code);
     let vk = code_to_vk(key_code);
+    let scan_code = get_scan_code(vk.unwrap());
+    let lparam = ((scan_code) << 16) | 1;
     unsafe {
-        PostMessageW(hwnd.into(), WM_KEYDOWN, WPARAM(vk.unwrap() as usize), LPARAM(0)).expect("failed to post keydown message");
+        PostMessageW(hwnd.into(), WM_KEYDOWN, WPARAM(vk.unwrap() as usize), LPARAM(lparam as isize)).expect("failed to post keydown message");
     }
     Ok(())
 }
@@ -150,15 +158,19 @@ pub(crate) fn keyboard_up(hwnd: HWND, key_code: &str) -> windows::core::Result<(
         eprintln!("Error: Invalid window handle");
         return Ok(());
     }
+    println!("[DEBUG][KEYBOARD] Event action: key {} up", key_code);
     let vk = code_to_vk(key_code);
+    let scan_code = get_scan_code(vk.unwrap());
+    let lparam = ((scan_code) << 16) | 0xC0000001;
     unsafe {
-        PostMessageW(hwnd.into(), WM_KEYUP, WPARAM(vk.unwrap() as usize), LPARAM(0)).expect("failed to post keyup message");
+        PostMessageW(hwnd.into(), WM_KEYUP, WPARAM(vk.unwrap() as usize), LPARAM(lparam as isize)).expect("failed to post keyup message");
     }
     Ok(())
 }
 
 pub fn keyboard_click(hwnd: HWND, key: &str) -> windows::core::Result<()> {
     keyboard_down(hwnd, key)?;
+    thread::sleep(Duration::from_millis(50));
     keyboard_up(hwnd, key)?;
     Ok(())
 }

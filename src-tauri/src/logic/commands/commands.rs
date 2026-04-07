@@ -35,6 +35,14 @@ pub fn execute_events(
     thread_manager: State<Mutex<ThreadManager>>,
     window: Window
 ) -> Result<(), String> {    // 线程管理器的互斥锁状态
+
+    // ------------- DEBUG -----------------
+    println!("[DEBUG] Received {} events:", events.len());
+    for (idx, event) in events.iter().enumerate() {
+        println!("     Event {}: {:?}", idx,event);
+    }
+    //---------------------------------------
+
     // 设置模式
     let mode_enum = match mode.as_str() {
         "sync" => ExecutionMode::Sync,

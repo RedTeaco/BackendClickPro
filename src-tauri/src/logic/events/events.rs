@@ -45,7 +45,6 @@ pub enum InputEvent {
 
 
 pub fn execute_event(event: &InputEvent, stop_signal: &Arc<AtomicBool>) {
-    println!("Executing event: {:?}", event);
     match event {
         InputEvent::Mouse {hwnd, btn, action,x,y} => {
             let hwnd_ptr = match handle_selected_window(*hwnd) {
@@ -140,24 +139,31 @@ pub fn execute_event(event: &InputEvent, stop_signal: &Arc<AtomicBool>) {
                 EventAction::Click {interval_ms, count} => {
                     match count {
                         Some(c) => {
+                            // ------------------ DEBUG --------------------
+                            println!("[KEYBOARD] Expected count: {}",c);
+                            // ---------------------------------------------
                             for i in 0..*c {
                                 if stop_signal.load(Ordering::SeqCst) {
                                     break;
                                 }
                                 let _ = keyboard_click(hwnd_ptr, key);
                                 if i != c - 1 {
-                                    thread::sleep(Duration::from_millis(*interval_ms));
+                                    thread::sleep(Duration::from_millis(*interval_ms-50));
                                 }
                             }
                         }
                         None => {
+                            // ------------------ DEBUG --------------------
+                            println!("[KEYBOARD] Infinite loop");
+                            // ---------------------------------------------
                             loop {
                                 if stop_signal.load(Ordering::SeqCst) {
                                     break;
                                 }
                                 let _ = keyboard_click(hwnd_ptr, key);
-                                thread::sleep(Duration::from_millis(*interval_ms));
+                                thread::sleep(Duration::from_millis(*interval_ms-50));
                             }
+                            println!("[KEYBOARD] Finished")
                         }
                     }
                 }

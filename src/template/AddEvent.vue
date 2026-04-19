@@ -1,11 +1,11 @@
 <template>
-  <div class="add-event">
-    <div class="panel-header">
+  <div class="flex flex-col gap-2 h-full p-4 min-h-0">
+    <div class="flex flex-nowrap gap-4 items-baseline justify-between shrink-0">
       <h3>添加新动作</h3>
       <span class="step-count">请填写事件信息</span>
     </div>
 
-    <div class="form-container">
+    <div class="event-card flex-1 overflow-y-auto min-h-0">
       <div class="form-group">
         <label>事件类型</label>
         <select v-model="form.type">
@@ -40,7 +40,7 @@
       <!--鼠标坐标 可选-->
       <div v-if="form.type === 'mouse'" class="form-group row-group">
         <label>鼠标坐标(X,Y) 可选</label>
-        <div style="display: flex; gap: 8px;">
+        <div class="flex gap-2">
           <input type="number" v-model.number="form.x" placeholder="X(默认0)" />
           <input type="number" v-model.number="form.y" placeholder="Y(默认0)" />
         </div>
@@ -72,8 +72,8 @@
       </div>
     </div>
 
-    <div class="action-buttons">
-      <button class="ctrl-btn cancel" @click="emit('cancel')">取消</button>
+    <div class="shrink-0">
+      <button class="ctrl-btn cancel" @click="router.push('/')">取消</button>
       <button class="ctrl-btn save" @click="saveEvent">保存</button>
     </div>
   </div>
@@ -81,14 +81,14 @@
 
 <script setup lang="ts">
 import {reactive, ref} from 'vue'
+import {useRouter} from 'vue-router'
+import {useAppStore} from "../stores/app.ts";
 import {FormEvent} from "../types/types.ts";
 
-let keyPlaceholder = ref<string>('例如：Enter, Space, A');
+const router = useRouter()
+const store = useAppStore()
 
-const emit = defineEmits<{
-  (e: 'addEvent', event: FormEvent): void;
-  (e: 'cancel'): void;
-}>();
+const keyPlaceholder = ref<string>('例如：Enter, Space, A');
 
 const form = reactive<FormEvent>({
   type: 'mouse',
@@ -134,111 +134,11 @@ const saveEvent = () => {
     count: finalCount,
     interval_ms: form.interval_ms>=50 ? form.interval_ms : 50,
   }
-  emit('addEvent', newEvent);
+  store.addActionItem(newEvent);
+  router.push('/');
 };
 </script>
 
 <style scoped>
-.add-event {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  height: 100%;
-}
 
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  border-bottom: 2px solid #eef2ff;
-  padding-bottom: 0.6rem;
-}
-
-.panel-header h3 {
-  font-weight: 600;
-  font-size: 1.35rem;
-  color: #0f172a;
-}
-
-.step-count {
-  font-size: 0.8rem;
-  background: #eef2ff;
-  padding: 4px 10px;
-  border-radius: 30px;
-  color: #2c3e66;
-}
-
-.form-container {
-  flex: 1;
-  background: #fafcff;
-  border-radius: 20px;
-  border: 1px solid #ecf3fa;
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.form-group label {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #2c3e66;
-}
-
-.form-group select,
-.form-group input {
-  padding: 8px 12px;
-  border-radius: 30px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  font-size: 0.9rem;
-  outline: none;
-  transition: 0.2s;
-}
-
-.form-group select:focus,
-.form-group input:focus {
-  border-color: #2c3e66;
-  box-shadow: 0 0 0 2px rgba(44, 62, 102, 0.2);
-}
-
-.action-buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-}
-
-.ctrl-btn {
-  background: white;
-  border: 1px solid #dee5ed;
-  padding: 8px 24px;
-  border-radius: 40px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  color: #2c3e66;
-}
-
-.ctrl-btn:hover {
-  background: #eef2ff;
-  border-color: #b9c8e5;
-  transform: scale(0.97);
-}
-
-.ctrl-btn.save {
-  background: #2c3e66;
-  border-color: #1e2f41;
-  color: white;
-}
-
-.ctrl-btn.save:hover {
-  background: #1e2f41;
-}
 </style>

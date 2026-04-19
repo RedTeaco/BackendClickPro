@@ -1,22 +1,22 @@
 import {FormEvent, InputEvent, StoredEvent} from "../types/types.ts";
 
-
+export const formatDuration = (duration: number | undefined): string => {
+    if (!duration) return '无限'
+    if (duration < 0) return '0毫秒';
+    if (duration < 1000) return `${duration}毫秒`;
+    const totalSeconds = duration/1000;
+    if (Number.isInteger(totalSeconds)){
+        if (totalSeconds < 60) return `${totalSeconds}秒`
+        if (totalSeconds >= 60) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = Math.floor(totalSeconds % 60);
+            return `${minutes}分钟${seconds}秒`;
+        }
+    }
+    return `${totalSeconds.toFixed(2)}秒`
+}
 export const formatEvent = (event: FormEvent & {hwnd?: number}): string => {
     const parts: string[] = [];
-    const formatDuration = (duration: number): string => {
-        if (duration < 0) return '0毫秒';
-        if (duration < 1000) return `${duration}毫秒`;
-        const totalSeconds = duration/1000;
-        if (Number.isInteger(totalSeconds)){
-            if (totalSeconds < 60) return `${totalSeconds}秒`
-            if (totalSeconds >= 60) {
-                const minutes = Math.floor(totalSeconds / 60);
-                const seconds = Math.floor(totalSeconds % 60);
-                return `${minutes}分钟${seconds}秒`;
-            }
-        }
-        return `${totalSeconds.toFixed(2)}秒`
-    }
     if (event.type === "mouse") {
         parts.push(`🐭 鼠标`);
         if (event.actionType === 'click') {
@@ -45,6 +45,27 @@ export const formatEvent = (event: FormEvent & {hwnd?: number}): string => {
     return parts.join(' · ');
 };
 
+export const getEventType = (event: FormEvent & {hwnd?: number}): string => {
+    if (event.type === "mouse") {
+        if (event.button === 'left') {
+            return "左键"
+        } else if (event.button === 'right') {
+            return "右键"
+        } else if (event.button === 'middle') {
+            return "中键"
+        } else {
+            return "自定义按键"
+        }
+    }
+    else if (event.type === "keyboard") {
+        return event.key ? event.key : ''
+    }
+    if (event.actionType === "scroll") {
+        return "滚轮"
+    }
+
+    return ''; // 均不匹配
+}
 // 将前端表单事件转换为后端InputEvent
 export const toBackendEvent = (form:FormEvent, hwnd: number): InputEvent => {
     let action:any;

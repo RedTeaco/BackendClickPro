@@ -33,4 +33,5 @@ chrono = "0.4.44"
 tar = "0.4.45"
 flate2 = "1.1.9"
 lazy_static = "1.5.0"
+tauri-plugin-decorum = "1.1.1"
 

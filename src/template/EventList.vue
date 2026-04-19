@@ -1,210 +1,117 @@
 <template>
-  <div class="event-list">
-    <div class="panel-header">
-      <h3>执行步骤列表</h3>
-      <span class="step-count">{{ actionItems.length }} 个步骤</span>
+  <div class="flex flex-col gap-2 h-full p-4">
+    <div class="flex flex-nowrap gap-4 items-baseline justify-between">
+      <h3 class="text-xl">执行步骤列表</h3>
+      <span class="text-md">{{ store.actionItems.length }} 个步骤</span>
     </div>
 
-    <div class="action-list-container">
-      <ul class="action-list">
+    <div class="flex-1 min-h-0 overflow-y-auto">
+      <ul class="flex flex-col gap-2">
         <li
-            v-for="(item, index) in actionItems"
+            v-for="(item, index) in store.actionItems"
             :key="index"
-            class="action-item"
-            :class="{ selected: selectedIndex === index }"
-            @click="emit('selectItem',index)"
+            class="event-card-item"
+            :class="{ selected: store.selectedIndex === index,
+            'bg-brand-neutral/10 border-l-4 border-brand-primary':store.selectedIndex === index }"
+            @click="store.selectItem(index)"
         >
-          <span class="item-index">{{ index + 1 }}</span>
-          <span class="item-content">{{ formatEvent(item) }}</span>
-          <div class="item-actions">
+          <span class="event-index">{{ index + 1 }}</span>
+          <div class="flex flex-1 gap-4 items-center">
+            <span v-if="item.type === 'mouse'" class="text-brand-primary"><LuMouse /></span>
+            <span v-else class="text-brand-primary"><LuKeyboard /></span>
+            <div class="flex flex-col flex-1 gap-1 text-black">
+              <span>{{getEventType(item)}}</span>
+              <div class="grid grid-cols-6 text-brand-neutral text-[0.7rem] items-center">
+                <div class="col-span-1">
+                  <div v-if="item.type === 'mouse'" class="detailed-content">
+                    <BiTargetLock size="16"/>
+                    <span class="translate-y-0.5">{{item.x ?? 0}}, {{item.y ?? 0}}</span>
+                  </div>
+                </div>
+                <div class="col-span-2">
+                  <div v-if="item.duration_ms" class="detailed-content">
+                    <LuTimer size="16"/>
+                    <span class="translate-y-0.5">持续 {{formatDuration(item.duration_ms)}}</span>
+                  </div>
+                  <div v-else class="detailed-content">
+                    <LuMousePointerClick size="16"/>
+                    <span class="translate-y-0.5">点击</span>
+                  </div>
+                </div>
+                <div class="detailed-content col-span-2">
+                  <LuHourglass size="16"/>
+                  <span class="translate-y-0.5">间隔 {{formatDuration(item.interval_ms)}}</span>
+                </div>
+                <div class="detailed-content col-span-1">
+                  <LuRefreshCw size="16"/>
+                  <span v-if="item.count" class="translate-y-0.5">{{item.count}}次</span>
+                  <span v-else class="translate-y-0.5">无限</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1">
+            <button
+                :data-disabled="store.isRunning ? 'true' : undefined"
+                class="action-icon-button hover:text-brand-primary data-disabled:hover:bg-transparent data-disabled:hover:text-current
+data-disabled:opacity-40 data-disabled:cursor-not-allowed"
+                title="修改">
+              <LuPencil size="16"/>
+            </button>
             <!-- 上移按钮 -->
             <button
-                class="action-icon"
-                @click.stop="emit('moveUp', index)"
-                :disabled="isRunning || index === 0"
+                :data-disabled="(store.isRunning || index === 0) ? 'true' : undefined"
+                class="action-icon-button
+hover:text-brand-primary data-disabled:hover:bg-transparent data-disabled:hover:text-current data-disabled:opacity-40 data-disabled:cursor-not-allowed"
+                @click.stop="store.moveUp(index)"
                 title="上移"
-            >⬆</button>
+            >
+              <LuChevronUp size="20" />
+            </button>
             <!-- 下移按钮 -->
             <button
-                class="action-icon"
-                @click.stop="emit('moveDown', index)"
-                :disabled="isRunning || index === actionItems.length - 1"
+                :data-disabled="(store.isRunning || index === store.actionItems.length - 1)?'true' : undefined"
+                class="action-icon-button hover:text-brand-primary data-disabled:hover:bg-transparent data-disabled:hover:text-current data-disabled:opacity-40 data-disabled:cursor-not-allowed"
+                @click.stop="store.moveDown(index)"
                 title="下移"
-            >⬇</button>
+            ><LuChevronDown size="20"/></button>
             <button
-                class="action-icon delete"
-                @click.stop="emit('deleteItem', index)"
-                :disabled="isRunning"
+                :data-disabled="store.isRunning ? 'true' : undefined"
+                class="action-icon-button hover:text-brand-stop
+                hover:drop-shadow-xl hover:drop-shadow-brand-stop
+data-disabled:hover:bg-transparent data-disabled:hover:text-current data-disabled:opacity-40 data-disabled:cursor-not-allowed"
+                @click.stop="store.deleteActionItem(index)"
                 title="删除此项"
-            >✕</button>
+            >
+              <LuX size="20"/>
+            </button>
           </div>
         </li>
       </ul>
-      <div v-if="actionItems.length === 0" class="empty-list">
+      <div v-if="store.actionItems.length === 0" class="empty-list">
         <span>📭 暂无步骤，点击上方“添加”按钮创建新动作</span>
       </div>
     </div>
 
-    <!-- 底部仅保留添加按钮，原来的 move-delete-group 已移除 -->
-    <div class="control-bar">
-      <div class="add-section">
-        <button class="ctrl-btn add-btn" @click="emit('switchToAdd')" :disabled="isRunning">
-          ➕ 添加
+    <div class="w-full shrink-0">
+        <button class="w-full justify-center border-dashed primary-button-outlined h-12"
+                @click="router.push('/add')"
+                :disabled="store.isRunning">
+          <AiOutlinePlus />
         </button>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue'
-import {FormEvent} from "../types/types.ts";
-import {formatEvent} from "../utils/utils.ts";
+import {AiOutlinePlus} from 'vue-icons-plus/ai';
+import {BiTargetLock} from 'vue-icons-plus/bi';
+import {LuKeyboard, LuMouse, LuTimer, LuHourglass, LuMousePointerClick, LuRefreshCw, LuPencil, LuChevronDown, LuChevronUp, LuX} from 'vue-icons-plus/lu';
 
+import {useRouter} from 'vue-router';
+import {useAppStore} from "../stores/app.ts";
+import {formatDuration, getEventType} from "../utils/utils.ts";
 // ... 类型定义和 formatKmEvent 函数保持不变（与之前相同）
-
-const props = defineProps<{
-  actionItems: FormEvent[];
-  selectedIndex: number | null;
-  isRunning: boolean;
-}>();
-
-const emit = defineEmits<{
-  (e: 'selectItem', index: number): void;
-  (e: 'deleteItem', index: number): void;
-  (e: 'moveUp', index: number): void;   // 新增
-  (e: 'moveDown', index: number): void; // 新增
-  (e: 'switchToAdd'): void;
-}>();
-
-// ... formatKmEvent 函数不变
+const router = useRouter();
+const store = useAppStore();
 </script>
-
-<style scoped>
-/* 修改样式以适应新布局 */
-.event-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
-  height: 100%;
-}
-
-/* 其他头部样式不变 */
-
-.action-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: white;
-  border-radius: 16px;
-  transition: all 0.15s;
-  cursor: pointer;
-  border: 1px solid #eef2ff;
-}
-
-.action-item:hover {
-  background: #f8fafc;
-  border-color: #cbdff2;
-}
-
-.action-item.selected {
-  background: #eef4ff;
-  border-left: 4px solid #2c3e66;
-  border-radius: 12px;
-}
-
-.item-index {
-  font-weight: 600;
-  width: 32px;
-  color: #5b6e8c;
-  font-size: 0.8rem;
-}
-
-.item-content {
-  flex: 1;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #1e293b;
-}
-
-.item-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.action-icon {
-  background: none;
-  border: none;
-  font-size: 1rem;
-  cursor: pointer;
-  color: #94a3b8;
-  border-radius: 30px;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.1s;
-}
-
-.action-icon:hover:not(:disabled) {
-  background: #eef2ff;
-  color: #2c3e66;
-}
-
-.action-icon.delete:hover:not(:disabled) {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.action-icon:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* 底部控制栏只保留添加按钮，样式微调 */
-.control-bar {
-  background: #f9fbfd;
-  padding: 12px 16px;
-  border-radius: 40px;
-  margin-top: 4px;
-}
-
-.add-section {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.ctrl-btn {
-  background: white;
-  border: 1px solid #dee5ed;
-  padding: 6px 16px;
-  border-radius: 40px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  color: #2c3e66;
-}
-
-.ctrl-btn:hover:not(:disabled) {
-  background: #eef2ff;
-  border-color: #b9c8e5;
-  transform: scale(0.97);
-}
-
-.ctrl-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.add-btn {
-  background: #eef2ff;
-  border-color: #cddef5;
-  font-weight: 600;
-}
-
-/* 其余样式（滚动条、空状态等）保持不变 */
-</style>

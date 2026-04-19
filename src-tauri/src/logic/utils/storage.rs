@@ -37,15 +37,20 @@ pub struct StoredEvent {
 pub struct AppConfig {
     pub shortcuts: ShortcutConfig,
     pub events: Vec<StoredEvent>,
+    pub mode: String, // 'sync' | 'sequence'
     pub max_logs: u32,
+    pub custom_data_dir: Option<String>, // 自定义数据存放目录
 }
+//TODO: 自定义数据存放目录
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
             shortcuts:ShortcutConfig::default(),
             events: Vec::new(),
+            mode: "sync".to_string(),
             max_logs: 20,
+            custom_data_dir: None,
         }
     }
 }
@@ -138,4 +143,11 @@ pub fn input_event_to_stored(event: &InputEvent) -> StoredEvent {
             }
         }
     }
+}
+
+pub fn get_current_data_dir(config: &AppConfig) -> PathBuf {
+    config.custom_data_dir
+        .as_ref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| dirs::config_dir().unwrap())
 }

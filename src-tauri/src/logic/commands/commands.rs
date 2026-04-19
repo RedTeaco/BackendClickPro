@@ -1,3 +1,4 @@
+use std::env::current_exe;
 use std::sync::Mutex;
 use std::thread;
 use tauri::{Emitter, State, Window};
@@ -123,11 +124,47 @@ pub fn load_shortcuts() -> Result<storage::ShortcutConfig, String> {
     Ok(config.shortcuts)
 }
 
+#[tauri::command]
+pub fn save_mode(mode: String) -> Result<(), String> {
+    let mut config = storage::load_config();
+    config.mode = mode;
+    storage::save_config(&config)
+}
+
+#[tauri::command]
+pub fn load_mode() -> Result<String, String> {
+    let config = storage::load_config();
+    Ok(config.mode)
+}
+
+#[tauri::command]
+pub fn get_data_dir(state: tauri::State<'_,Mutex<ThreadManager>>) -> Result<String, String> {
+    let config = storage::load_config();
+    Ok(storage::get_current_data_dir(&config).to_string_lossy().to_string())
+}
+
 // ========= 日志命令 ==========
 #[tauri::command]
 pub fn log_message(message: String) -> Result<(), String> {
     logger::log_message(&message);
     Ok(())
 }
+
+// ======== 权限命令 ==========
+#[tauri::command]
+pub fn relaunch_as_admin(app_handle: tauri::AppHandle) -> Result<(), String> {
+    // 获取当前可执行文件的路径
+    let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    // 使用ShellExecuteW
+    let result = std::process::Command::new("cmd")
+        .args(&["/c","start","","runas",current_exe.to_str().unwrap()])
+        .spawn();
+
+    if result.is_ok() {
+        std::process::exit(0);
+    }
+    Ok(())
+}
+//TODO 前端提供以管理员身份启动的弹窗
 
 

@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme {
+    /* Brand Colors */
+    --color-brand-primary: #9CC9FD;
+    --color-brand-secondary: #8592A4;
+    --color-brand-tertiary: #9E89AD;
+    --color-brand-neutral: #909094;
+    --color-brand-stop: #FF5449;
+
+    /* Typography */
+    --font-headline: "Manrope", sans-serif;
+    --font-body: "Inter", sans-serif;
+    --font-label: "Inter", sans-serif;
+
+    /* Shapes */
+    --radius-theme: 0.5rem; /* Level 2 roundedness */
+
+    /* Custom Spacing Scale (Normal) */
+    --spacing-theme-base: 0.5rem;
+}
+
+@layer base {
+    body {
+        @apply font-body text-brand-neutral bg-slate-50 h-full overflow-hidden;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        @apply font-headline text-brand-secondary font-bold tracking-tight;
+    }
+}
+
+
+@utility primary-button {
+    @apply bg-brand-primary text-white px-4 py-2 rounded-theme font-bold hover:opacity-90 transition-opacity
+    flex items-center gap-2 justify-between hover:cursor-pointer
+}
+
+@utility primary-button-outlined {
+    @apply border-2 border-brand-primary text-brand-primary px-4 py-1.5 rounded-theme font-bold
+    hover:cursor-pointer hover:bg-brand-primary hover:text-white transition-all flex items-center gap-2 justify-between
+}
+
+@utility secondary-button-outlined {
+    @apply border-2 border-brand-secondary text-brand-secondary px-4 py-1.5 rounded-theme font-bold
+    hover:cursor-pointer hover:bg-brand-secondary hover:text-white transition-all flex items-center gap-2 justify-between
+}
+
+@utility stop-button {
+    @apply bg-brand-stop text-white px-4 py-2 rounded-theme font-bold hover:opacity-90 transition-opacity
+    flex items-center gap-2 justify-between hover:cursor-pointer
+}
+
+@utility accent-button {
+    @apply bg-brand-tertiary text-white px-4 py-1.5 rounded-theme font-bold hover:opacity-90 transition-opacity
+    hover:cursor-pointer
+}
+
+@utility accent-button-group-item {
+    @apply text-brand-tertiary font-bold hover:cursor-pointer hover:bg-brand-tertiary hover:text-white transition-all h-full py-1.5 gap-2
+}
+
+@utility shortcut {
+    @apply px-1.5 py-0.5 text-xs text-brand-neutral font-mono bg-white border border-gray-300 rounded
+}
+
+@utility card {
+    @apply bg-gray-50 p-4 rounded-theme shadow-sm border border-slate-200 overflow-auto;
+}
+
+@utility event-card {
+    @apply flex flex-col gap-2 h-full text-sm bg-gray-50 p-4 rounded-theme shadow-sm border border-slate-200 overflow-x-auto;
+}
+
+@utility event-card-item {
+    @apply flex items-center gap-2 p-4 bg-white rounded-xl transition-all cursor-pointer border border-gray-50
+    hover:bg-brand-secondary/10 hover:border-brand-secondary/10
+}
+
+@utility event-index {
+    @apply font-bold text-[0.8rem] text-brand-neutral pr-1
+}
+
+@utility font-content {
+    @apply flex-1 text-[0.9rem] text-black
+}
+
+@utility detailed-content {
+    @apply flex flex-row flex-nowrap gap-1
+}
+
+@utility action-icon-button {
+    @apply bg-none cursor-pointer hover:text-brand-primary transition-all flex items-center gap-2
+}
+
+@utility form-group {
+    @apply flex gap-2 p-4 rounded-lg border border-brand-neutral
+}

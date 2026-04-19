@@ -37,9 +37,10 @@ This template should help get you started developing with Vue 3 and TypeScript i
 但是单个事件中可能有多个动作，例如点击循环3次后进行下一个事件
 
 # TODO
-- [ ] 前端改为tailwindcss
 - [ ] 鼠标坐标捕捉
 - [ ] 已有序列的修改
-- [ ] click的间隔时间问题:键盘的click内置cd,鼠标未内置，但设置的间隔事件也不能过少
-- [ ] 序列模式执行有问题
 - [ ] 热键(快捷键)设置
+- [ ] 管理员启动
+- [ ] 在同步模式下，允许无限长按（无间隔）
+- [ ] 启动加载问题pinia
+- 存储文件的管理与存放位置

@@ -13,12 +13,13 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "backendclick_lite",
+        "title": "后台键鼠",
         "width": 800,
         "height": 600,
         "decorations": false,
         "titleBarStyle": "Overlay",
-        "hiddenTitle": true
+        "hiddenTitle": true,
+        "dragDropEnabled": true
       }
     ],
     "security": {

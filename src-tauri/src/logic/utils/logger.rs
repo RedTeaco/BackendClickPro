@@ -8,6 +8,7 @@ use flate2::Compression;
 use flate2::write::GzEncoder;
 use lazy_static::lazy_static;
 use tar::Builder;
+use crate::logic::utils::storage;
 use crate::logic::utils::utils::APP_DIR_NAME;
 
 pub struct Logger {
@@ -17,10 +18,7 @@ pub struct Logger {
 
 impl Logger {
     pub fn new(max_logs: u32) -> Self {
-        let log_dir = dirs::data_local_dir()
-            .expect("Failed to get data local dir")
-            .join(APP_DIR_NAME)
-            .join("logs");
+        let log_dir = storage::get_log_path();
         fs::create_dir_all(&log_dir).unwrap();
 
         let timestamp = SystemTime::now()

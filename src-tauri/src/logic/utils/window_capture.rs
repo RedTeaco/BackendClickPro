@@ -94,11 +94,17 @@ pub fn handle_selected_window(hwnd_u: usize) -> Option<HWND> {
 
     // 验证窗口有效性 - 使用Windows API的IsWindow函数检查句柄是否代表一个有效窗口
     if !unsafe { IsWindow(Some(hwnd)) }.as_bool() {
+        eprintln!("窗口句柄无效: {}", hwnd_u);
         // 如果窗口无效，返回None
         return None;
     }
 
     // 在此处处理选中的窗口，例如获取窗口截图等
     // 如果窗口有效，返回Some(hwnd)
+    eprintln!("窗口句柄有效: {}", hwnd_u);
     Some(hwnd)
+}
+
+pub fn is_window_valid(hwnd: usize) -> bool {
+    unsafe { IsWindow(Some(HWND(hwnd as *mut c_void))) }.as_bool()
 }

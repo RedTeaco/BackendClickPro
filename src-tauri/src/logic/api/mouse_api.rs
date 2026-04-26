@@ -1,5 +1,6 @@
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_XBUTTONDOWN, WM_XBUTTONUP};
+use crate::logic::utils::window_capture::handle_selected_window;
 
 pub const XBUTTON1: u16 = 0x0001;
 pub const XBUTTON2: u16 = 0x0002;
@@ -12,12 +13,13 @@ macro_rules! MAKELPARAM {
 
 // 通用底层函数
 fn mouse_send_message(
-    hwnd: HWND,
+    hwnd_u: usize,
     msg: u32,
     wparam: WPARAM,
     x: i32,
     y: i32,
 ) -> windows::core::Result<()> {
+    let hwnd = handle_selected_window(hwnd_u).unwrap();
     if hwnd.0 == std::ptr::null_mut() {
         eprintln!("Error: Invalid window handle");
         return Ok(());
@@ -43,7 +45,7 @@ fn mouse_send_message(
 /// # 返回值
 /// 返回一个`windows::core::Result<()>`，表示操作是否成功
 pub fn mouse_action(
-    hwnd: HWND,
+    hwnd: usize,
     button: &str,
     action: &str,
     x: Option<i32>,

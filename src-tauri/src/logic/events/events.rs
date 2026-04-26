@@ -3,9 +3,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 use serde::{Deserialize, Serialize};
+use tokio::select;
+use tokio::sync::Notify;
+use tokio::time::sleep;
 use crate::logic::api::keyboard_api::{keyboard_click, keyboard_down, keyboard_up};
 use crate::logic::api::mouse_api::mouse_action;
-use crate::logic::utils::window_capture::handle_selected_window;
+use crate::logic::utils::window_capture::{handle_selected_window, is_window_valid};
 
 /// 事件动作枚举，定义了不同类型的输入事件
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,6 +22,8 @@ pub enum EventAction {
         duration_ms: u64, // 长按的持续时间
         interval_ms: u64, // 间隔时间
         count: Option<u32>, // 循环次数 None 表示无限
+        #[serde(default)]
+        continuous: bool,
     },
     Scroll {
         delta: i32, // 滚动量
@@ -43,27 +48,34 @@ pub enum InputEvent {
     },
 }
 
+async fn sleep_interruptible_ms(ms: u64, stop_signal: &Arc<AtomicBool>, notify: &Arc<Notify>) {
+    select! {
+        _ = tokio::time::sleep(Duration::from_millis(ms)) => {},
+        _ = notify.notified() => {}
+    }
 
-pub fn execute_event(event: &InputEvent, stop_signal: &Arc<AtomicBool>) {
+    if stop_signal.load(Ordering::SeqCst) {
+        return;
+    }
+}
+
+
+pub async fn execute_event(event: &InputEvent, stop_signal: &Arc<AtomicBool>, notify: &Arc<Notify>) {
     match event {
         InputEvent::Mouse {hwnd, btn, action,x,y} => {
-            let hwnd_ptr = match handle_selected_window(*hwnd) {
-                Some(h) => h,
-                None => {
-                    eprintln!("Invalid window handle: {}", hwnd);
-                    return;
-                }
-            };
-
+            if !is_window_valid(*hwnd) {
+                eprintln!("无效窗口句柄: {}", hwnd);
+                return;
+            }
             match action {
                 EventAction::Click {interval_ms, count} => {
                     match count {
                         Some(c) => {
                             for i in 0..*c {
                                 if stop_signal.load(Ordering::SeqCst) { break; }
-                                let _ = mouse_action(hwnd_ptr, btn, "click", *x, *y, None);
+                                let _ = mouse_action(*hwnd, btn, "click", *x, *y, None);
                                 if i != c - 1 {
-                                    thread::sleep(Duration::from_millis(*interval_ms));
+                                    sleep_interruptible_ms(*interval_ms, stop_signal, notify).await;
                                 }
                             }
                         }
@@ -72,32 +84,41 @@ pub fn execute_event(event: &InputEvent, stop_signal: &Arc<AtomicBool>) {
                                 if stop_signal.load(Ordering::SeqCst) {
                                     break;
                                 }
-                                let _ = mouse_action(hwnd_ptr, btn, "click", *x, *y, None);
-                                thread::sleep(Duration::from_millis(*interval_ms));
+                                let _ = mouse_action(*hwnd, btn, "click", *x, *y, None);
+                                sleep_interruptible_ms(*interval_ms, stop_signal, notify).await;
+
                             }
                         }
                     }
                 }
-                EventAction::Hold {duration_ms, interval_ms, count} => {
-                    match count {
-                        Some(c) => {
-                            for i in 0..*c {
-                                if stop_signal.load(Ordering::SeqCst) {break };
-                                let _ = mouse_action(hwnd_ptr, btn, "down", *x, *y, None);
-                                thread::sleep(Duration::from_millis(*duration_ms));
-                                let _ = mouse_action(hwnd_ptr, btn, "up", *x, *y, None);
-                                if i != c - 1 {
-                                    thread::sleep(Duration::from_millis(*interval_ms));
+                EventAction::Hold {duration_ms, interval_ms, count, continuous} => {
+                    if *continuous {
+                        // 持续模式
+                        let _ = mouse_action(*hwnd, btn, "down", *x, *y, None);
+                        while !stop_signal.load(Ordering::SeqCst) {
+                            sleep_interruptible_ms(50, stop_signal, notify).await;
+                        }
+                    }else {
+                        match count {
+                            Some(c) => {
+                                for i in 0..*c {
+                                    if stop_signal.load(Ordering::SeqCst) {break };
+                                    let _ = mouse_action(*hwnd, btn, "down", *x, *y, None);
+                                    sleep_interruptible_ms(*duration_ms, stop_signal, notify).await;
+                                    let _ = mouse_action(*hwnd, btn, "up", *x, *y, None);
+                                    if i != c - 1 {
+                                        sleep_interruptible_ms(*interval_ms, stop_signal, notify).await;
+                                    }
                                 }
                             }
-                        }
-                        None => {
-                            loop {
-                                if stop_signal.load(Ordering::SeqCst) {break };
-                                let _ = mouse_action(hwnd_ptr, btn, "down", *x, *y, None);
-                                thread::sleep(Duration::from_millis(*duration_ms));
-                                let _ = mouse_action(hwnd_ptr, btn, "up", *x, *y, None);
-                                thread::sleep(Duration::from_millis(*interval_ms));
+                            None => {
+                                loop {
+                                    if stop_signal.load(Ordering::SeqCst) {break };
+                                    let _ = mouse_action(*hwnd, btn, "down", *x, *y, None);
+                                    sleep_interruptible_ms(*duration_ms, stop_signal, notify).await;
+                                    let _ = mouse_action(*hwnd, btn, "up", *x, *y, None);
+                                    sleep_interruptible_ms(*interval_ms, stop_signal, notify).await;
+                                }
                             }
                         }
                     }
@@ -108,18 +129,18 @@ pub fn execute_event(event: &InputEvent, stop_signal: &Arc<AtomicBool>) {
                             for i in 0..*c {
                                 if stop_signal.load(Ordering::SeqCst) {break };
                                 // 滚轮动作,button为wheel
-                                let _ = mouse_action(hwnd_ptr, "wheel", "scroll", *x, *y, Some(*delta));
+                                let _ = mouse_action(*hwnd, "wheel", "scroll", *x, *y, Some(*delta));
 
                                 if i != c - 1 {
-                                    thread::sleep(Duration::from_millis(*interval_ms));
+                                    sleep_interruptible_ms(*interval_ms, stop_signal, notify).await;
                                 }
                             }
                         }
                         None => {
                             loop {
                                 if stop_signal.load(Ordering::SeqCst) {break };
-                                let _ = mouse_action(hwnd_ptr, "wheel", "scroll", *x, *y, Some(*delta));
-                                thread::sleep(Duration::from_millis(*interval_ms));
+                                let _ = mouse_action(*hwnd, "wheel", "scroll", *x, *y, Some(*delta));
+                                sleep_interruptible_ms(*interval_ms, stop_signal, notify).await;
                             }
                         }
                     }
@@ -127,14 +148,10 @@ pub fn execute_event(event: &InputEvent, stop_signal: &Arc<AtomicBool>) {
             }
         },
         InputEvent::Keyboard {hwnd, key, action} => {
-            let hwnd_ptr = match handle_selected_window(*hwnd){
-                Some(h) => h,
-                None => {
-                    eprintln!("Invalid window handle: {}", hwnd);
-                    return;
-                }
-            };
-
+            if !is_window_valid(*hwnd) {
+                eprintln!("无效窗口句柄: {}", hwnd);
+                return;
+            }
             match action {
                 EventAction::Click {interval_ms, count} => {
                     match count {
@@ -146,9 +163,9 @@ pub fn execute_event(event: &InputEvent, stop_signal: &Arc<AtomicBool>) {
                                 if stop_signal.load(Ordering::SeqCst) {
                                     break;
                                 }
-                                let _ = keyboard_click(hwnd_ptr, key);
+                                let _ = keyboard_click(*hwnd, key);
                                 if i != c - 1 {
-                                    thread::sleep(Duration::from_millis(*interval_ms-50));
+                                    sleep_interruptible_ms(*interval_ms-50, stop_signal, notify).await;
                                 }
                             }
                         }
@@ -160,33 +177,40 @@ pub fn execute_event(event: &InputEvent, stop_signal: &Arc<AtomicBool>) {
                                 if stop_signal.load(Ordering::SeqCst) {
                                     break;
                                 }
-                                let _ = keyboard_click(hwnd_ptr, key);
-                                thread::sleep(Duration::from_millis(*interval_ms-50));
+                                let _ = keyboard_click(*hwnd, key);
+                                sleep_interruptible_ms(*interval_ms-50, stop_signal, notify).await;
                             }
                             println!("[KEYBOARD] Finished")
                         }
                     }
                 }
-                EventAction::Hold {duration_ms, interval_ms, count} => {
-                    match count {
-                        Some(c) => {
-                            for i in 0..*c {
-                                if stop_signal.load(Ordering::SeqCst) { break; }
-                                let _ = keyboard_down(hwnd_ptr, key);
-                                thread::sleep(Duration::from_millis(*duration_ms));
-                                let _ = keyboard_up(hwnd_ptr, key);
-                                if i != c - 1 {
-                                    thread::sleep(Duration::from_millis(*interval_ms));
+                EventAction::Hold {duration_ms, interval_ms, count, continuous} => {
+                    if *continuous {
+                        let _ = keyboard_down(*hwnd, key);
+                        while !stop_signal.load(Ordering::SeqCst) {
+                            sleep_interruptible_ms(50,stop_signal,notify).await;
+                        }
+                    } else {
+                        match count {
+                            Some(c) => {
+                                for i in 0..*c {
+                                    if stop_signal.load(Ordering::SeqCst) { break; }
+                                    let _ = keyboard_down(*hwnd, key);
+                                    sleep_interruptible_ms(*duration_ms, stop_signal, notify).await;
+                                    let _ = keyboard_up(*hwnd, key);
+                                    if i != c - 1 {
+                                        sleep_interruptible_ms(*interval_ms, stop_signal, notify).await;
+                                    }
                                 }
                             }
-                        }
-                        None => {
-                            loop {
-                                if stop_signal.load(Ordering::SeqCst) { break; }
-                                let _ = keyboard_down(hwnd_ptr, key);
-                                thread::sleep(Duration::from_millis(*duration_ms));
-                                let _ = keyboard_up(hwnd_ptr, key);
-                                thread::sleep(Duration::from_millis(*interval_ms));
+                            None => {
+                                loop {
+                                    if stop_signal.load(Ordering::SeqCst) { break; }
+                                    let _ = keyboard_down(*hwnd, key);
+                                    sleep_interruptible_ms(*duration_ms, stop_signal, notify).await;
+                                    let _ = keyboard_up(*hwnd, key);
+                                    sleep_interruptible_ms(*interval_ms, stop_signal, notify).await;
+                                }
                             }
                         }
                     }
@@ -210,19 +234,16 @@ pub fn shutdown_event(event: &InputEvent) {
     match event {
         // 匹配鼠标事件，包含窗口句柄、鼠标按钮和坐标信息
         InputEvent::Mouse { hwnd, btn, x, y, .. } => {
-            // 尝试获取选中的窗口句柄
-            if let Some(hwnd_ptr) = handle_selected_window(*hwnd) {
-                // 执行鼠标抬起操作，参数包括窗口句柄、按钮类型、坐标和额外信息
-                let _ = mouse_action(hwnd_ptr, btn, "up", *x, *y, None);
+            // 执行鼠标抬起操作，参数包括窗口句柄、按钮类型、坐标和额外信息
+            if is_window_valid(*hwnd) {
+                let _ = mouse_action(*hwnd, btn, "up", *x, *y, None);
             }
         }
         // 匹配键盘事件，包含窗口句柄和按键信息
         InputEvent::Keyboard { hwnd, key, .. } => {
-            // 尝试获取选中的窗口句柄
-            if let Some(hwnd_ptr) = handle_selected_window(*hwnd) {
-                // 执行键盘按键释放操作
-                let _ = keyboard_up(hwnd_ptr, key);
-            }
-        }
+            // 执行键盘按键释放操作
+            if is_window_valid(*hwnd) {
+                let _ = keyboard_up(*hwnd, key);
+            }        }
     }
 }

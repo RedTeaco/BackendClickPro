@@ -1,26 +1,26 @@
-use std::env::current_exe;
+use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 use std::thread;
 use tauri::{Emitter, State, Window};
-use crate::logic::events::events::InputEvent;
+use crate::logic::events::execution_plan::{execute_node, ExecutionNode};
 use crate::logic::utils::{logger, storage};
-use crate::logic::utils::storage::{input_event_to_stored, StoredEvent};
-use crate::logic::utils::thread_manager::{ExecutionMode, ThreadManager};
+use crate::logic::utils::thread_manager::{ThreadManager};
 
-#[tauri::command]
-pub fn set_mode(mode: String, thread_manager: State<Mutex<ThreadManager>>) -> Result<(), String> {
-    let mode_enum = match mode.as_str() {
-        "sync" => ExecutionMode::Sync,
-        "sequence" => ExecutionMode::Sequence,
-        _ => return Err("Invalid mode".into()),
-    };
-    let mut manager = thread_manager.lock().unwrap();
-    manager.set_mode(mode_enum);
-    Ok(())
-}
+// #[tauri::command]
+// pub fn set_mode(mode: String, thread_manager: State<Mutex<ThreadManager>>) -> Result<(), String> {
+//     let mode_enum = match mode.as_str() {
+//         "sync" => ExecutionMode::Sync,
+//         "sequence" => ExecutionMode::Sequence,
+//         _ => return Err("Invalid mode".into()),
+//     };
+//     let mut manager = thread_manager.lock().unwrap();
+//     manager.set_mode(mode_enum);
+//     Ok(())
+// }
 
 /// 使用Tauri框架定义的命令函数，用于执行输入事件
 ///
+/// deprecated
 /// # 参数
 /// * `events` - 输入事件向量，包含要执行的事件列表
 /// * `mode` - 执行模式的字符串表示，支持"sync"或"sequence"
@@ -29,47 +29,70 @@ pub fn set_mode(mode: String, thread_manager: State<Mutex<ThreadManager>>) -> Re
 /// # 返回值
 /// * `Ok(())` - 执行成功
 /// * `Err(String)` - 执行失败，返回错误信息
+// #[tauri::command]
+// pub fn execute_events(
+//     events: Vec<InputEvent>,    // 输入事件列表
+//     mode: String,               // 执行模式，可以是"sync"或"sequence"
+//     thread_manager: State<Mutex<ThreadManager>>,
+//     window: Window
+// ) -> Result<(), String> {    // 线程管理器的互斥锁状态
+//
+//     // ------------- DEBUG -----------------
+//     println!("[DEBUG] Received {} events:", events.len());
+//     for (idx, event) in events.iter().enumerate() {
+//         println!("     Event {}: {:?}", idx,event);
+//     }
+//     //---------------------------------------
+//
+//     // 设置模式
+//     let mode_enum = match mode.as_str() {
+//         "sync" => ExecutionMode::Sync,
+//         "sequence" => ExecutionMode::Sequence,
+//         _ => return Err("Invalid mode".into()),
+//     };
+//     let mut manager = thread_manager.lock().unwrap();
+//     manager.set_mode(mode_enum);
+//     // 设置事件
+//     manager.set_events(events);
+//
+//
+//     let rx = manager.start();
+//     drop(manager); // 释放锁
+//
+//     // 在后台线程等待完成并发送事件
+//     thread::spawn(move || {
+//         match rx.recv() {
+//             Ok(_) => {
+//                 let _ = window.emit("execution-completed", ());
+//             }
+//             Err(e) => {
+//                 let _ = window.emit("execution-error", e.to_string());
+//             }
+//         }
+//     });
+//     Ok(())
+// }
+
 #[tauri::command]
-pub fn execute_events(
-    events: Vec<InputEvent>,    // 输入事件列表
-    mode: String,               // 执行模式，可以是"sync"或"sequence"
-    thread_manager: State<Mutex<ThreadManager>>,
-    window: Window
-) -> Result<(), String> {    // 线程管理器的互斥锁状态
-
-    // ------------- DEBUG -----------------
-    println!("[DEBUG] Received {} events:", events.len());
-    for (idx, event) in events.iter().enumerate() {
-        println!("     Event {}: {:?}", idx,event);
-    }
-    //---------------------------------------
-
-    // 设置模式
-    let mode_enum = match mode.as_str() {
-        "sync" => ExecutionMode::Sync,
-        "sequence" => ExecutionMode::Sequence,
-        _ => return Err("Invalid mode".into()),
+pub async fn execute_plan(
+    plan: ExecutionNode,
+    thread_manager: State<'_, Mutex<ThreadManager>>,
+    window: Window,
+) -> Result<(), String> {
+    let (stop_sig, stop_noti) = {
+        let manager = thread_manager.lock().unwrap();
+        manager.stop();
+        (manager.stop_signal.clone(), manager.stop_notify.clone())
     };
-    let mut manager = thread_manager.lock().unwrap();
-    manager.set_mode(mode_enum);
-    // 设置事件
-    manager.set_events(events);
 
+    // 重置停止标志
+    stop_sig.store(false, Ordering::SeqCst);
 
-    let rx = manager.start();
-    drop(manager); // 释放锁
-
-    // 在后台线程等待完成并发送事件
-    thread::spawn(move || {
-        match rx.recv() {
-            Ok(_) => {
-                let _ = window.emit("execution-completed", ());
-            }
-            Err(e) => {
-                let _ = window.emit("execution-error", e.to_string());
-            }
-        }
+    tokio::spawn(async move {
+        execute_node(&plan, &stop_sig, &stop_noti).await;
+        let _ = window.emit("execution-completed",());
     });
+    // 等待任务完成（无论是正常结束还是因停止信号退出）
     Ok(())
 }
 
@@ -83,7 +106,7 @@ pub fn execute_events(
 /// # 使用场景
 /// 当用户需要中断或停止当前正在执行的线程时调用此函数
 #[tauri::command]
-pub fn stop_execution(thread_manager: State<Mutex<ThreadManager>>) -> Result<(), String> {
+pub fn stop_execution(thread_manager: State<'_, Mutex<ThreadManager>>) -> Result<(), String> {
     // 获取互斥锁的所有权，如果获取失败则触发 panic
     let manager = thread_manager.lock().unwrap();
     // 调用线程管理器的 stop 方法来停止执行
@@ -92,23 +115,33 @@ pub fn stop_execution(thread_manager: State<Mutex<ThreadManager>>) -> Result<(),
 }
 
 #[tauri::command]
-pub fn get_execution_status(thread_manager: State<Mutex<ThreadManager>>) -> bool {
+pub fn get_execution_status(thread_manager: State<'_, Mutex<ThreadManager>>) -> bool {
     let manager = thread_manager.lock().unwrap();
     manager.is_running()
 }
 
 // =========== 持久化存储命令 ===========
+// #[tauri::command]
+// pub fn save_events(events: Vec<InputEvent>) -> Result<(), String> {
+//     let mut config = storage::load_config();
+//     config.events = events.iter().map(|e| input_event_to_stored(e)).collect();
+//     storage::save_config(&config)
+// }
+//
+// #[tauri::command]
+// pub fn load_events() -> Result<Vec<StoredEvent>, String> {
+//     let config = storage::load_config();
+//     Ok(config.events)
+// }
+
 #[tauri::command]
-pub fn save_events(events: Vec<InputEvent>) -> Result<(), String> {
-    let mut config = storage::load_config();
-    config.events = events.iter().map(|e| input_event_to_stored(e)).collect();
-    storage::save_config(&config)
+pub fn save_root_groups(groups: Vec<serde_json::Value>) -> Result<(), String> {
+    storage::save_root_groups(&groups)
 }
 
 #[tauri::command]
-pub fn load_events() -> Result<Vec<StoredEvent>, String> {
-    let config = storage::load_config();
-    Ok(config.events)
+pub fn load_root_groups() -> Result<Vec<serde_json::Value>, String> {
+    storage::load_root_groups()
 }
 
 #[tauri::command]
@@ -125,8 +158,11 @@ pub fn load_shortcuts() -> Result<storage::ShortcutConfig, String> {
 }
 
 #[tauri::command]
+    // 加载现有的配置文件 deprecated
 pub fn save_mode(mode: String) -> Result<(), String> {
+    // 更新配置中的模式字段
     let mut config = storage::load_config();
+    // 保存更新后的配置
     config.mode = mode;
     storage::save_config(&config)
 }
@@ -139,8 +175,7 @@ pub fn load_mode() -> Result<String, String> {
 
 #[tauri::command]
 pub fn get_data_dir(state: tauri::State<'_,Mutex<ThreadManager>>) -> Result<String, String> {
-    let config = storage::load_config();
-    Ok(storage::get_current_data_dir(&config).to_string_lossy().to_string())
+    Ok(storage::get_data_dir().to_string_lossy().to_string())
 }
 
 // ========= 日志命令 ==========

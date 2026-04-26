@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 use tauri::Manager;
-use crate::logic::commands::commands::{execute_events, get_execution_status, load_events, save_mode, load_mode, save_events, save_shortcuts, load_shortcuts, log_message, set_mode, stop_execution};
+use crate::logic::commands::commands::{get_execution_status, save_root_groups, load_root_groups, execute_plan, save_mode, load_mode, save_shortcuts, load_shortcuts, log_message, stop_execution};
 use crate::logic::utils::thread_manager::{ThreadManager};
 use crate::logic::utils::window_capture::get_windows;
 use tauri_plugin_decorum::WebviewWindowExt;
@@ -21,8 +21,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_windows,
-            set_mode, execute_events, stop_execution, get_execution_status,
-            save_events, load_events, save_shortcuts, load_shortcuts, log_message, save_mode, load_mode])
+            stop_execution, get_execution_status,
+            save_root_groups, load_root_groups, execute_plan, save_shortcuts, load_shortcuts, log_message, save_mode, load_mode])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

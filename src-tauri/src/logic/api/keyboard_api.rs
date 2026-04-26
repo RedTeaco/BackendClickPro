@@ -5,6 +5,7 @@ use tauri::utils::assets::phf::phf_map;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_KEYDOWN, WM_KEYUP};
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
+use crate::logic::utils::window_capture::handle_selected_window;
 
 static KEY_MAP: phf::Map<&'static str, u16> = phf_map! {
     // ========== 功能键 F1-F24 ==========
@@ -138,7 +139,8 @@ fn get_scan_code(vk: u16) -> u32 {
     unsafe { MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC)}
 }
 
-pub(crate) fn keyboard_down(hwnd: HWND, key_code: &str) -> windows::core::Result<()> {
+pub(crate) fn keyboard_down(hwnd_u: usize, key_code: &str) -> windows::core::Result<()> {
+    let hwnd = handle_selected_window(hwnd_u).unwrap();
     if hwnd.0 == std::ptr::null_mut() {
         eprintln!("Error: Invalid window handle");
         return Ok(());
@@ -153,7 +155,8 @@ pub(crate) fn keyboard_down(hwnd: HWND, key_code: &str) -> windows::core::Result
     Ok(())
 }
 
-pub(crate) fn keyboard_up(hwnd: HWND, key_code: &str) -> windows::core::Result<()> {
+pub(crate) fn keyboard_up(hwnd_u: usize, key_code: &str) -> windows::core::Result<()> {
+    let hwnd = handle_selected_window(hwnd_u).unwrap();
     if hwnd.0 == std::ptr::null_mut() {
         eprintln!("Error: Invalid window handle");
         return Ok(());
@@ -168,7 +171,7 @@ pub(crate) fn keyboard_up(hwnd: HWND, key_code: &str) -> windows::core::Result<(
     Ok(())
 }
 
-pub fn keyboard_click(hwnd: HWND, key: &str) -> windows::core::Result<()> {
+pub fn keyboard_click(hwnd: usize, key: &str) -> windows::core::Result<()> {
     keyboard_down(hwnd, key)?;
     thread::sleep(Duration::from_millis(50));
     keyboard_up(hwnd, key)?;

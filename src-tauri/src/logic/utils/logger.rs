@@ -9,7 +9,6 @@ use flate2::write::GzEncoder;
 use lazy_static::lazy_static;
 use tar::Builder;
 use crate::logic::utils::storage;
-use crate::logic::utils::utils::APP_DIR_NAME;
 
 pub struct Logger {
     current_log_path: PathBuf,

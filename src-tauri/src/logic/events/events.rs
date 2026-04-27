@@ -1,14 +1,12 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
 use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tokio::select;
 use tokio::sync::Notify;
-use tokio::time::sleep;
 use crate::logic::api::keyboard_api::{keyboard_click, keyboard_down, keyboard_up};
 use crate::logic::api::mouse_api::mouse_action;
-use crate::logic::utils::window_capture::{handle_selected_window, is_window_valid};
+use crate::logic::utils::window_capture::{is_window_valid};
 
 /// 事件动作枚举，定义了不同类型的输入事件
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +46,23 @@ pub enum InputEvent {
     },
 }
 
+/// RAII 事件清理守卫
+struct EventGuard {
+    event: InputEvent,
+}
+
+impl EventGuard {
+    fn new(event: InputEvent) -> Self {
+        Self {event}
+    }
+}
+
+impl Drop for EventGuard {
+    fn drop(&mut self) {
+        shutdown_event(&self.event);
+    }
+}
+
 async fn sleep_interruptible_ms(ms: u64, stop_signal: &Arc<AtomicBool>, notify: &Arc<Notify>) {
     select! {
         _ = tokio::time::sleep(Duration::from_millis(ms)) => {},
@@ -61,6 +76,7 @@ async fn sleep_interruptible_ms(ms: u64, stop_signal: &Arc<AtomicBool>, notify: 
 
 
 pub async fn execute_event(event: &InputEvent, stop_signal: &Arc<AtomicBool>, notify: &Arc<Notify>) {
+    let _guard = EventGuard::new(event.clone());
     match event {
         InputEvent::Mouse {hwnd, btn, action,x,y} => {
             if !is_window_valid(*hwnd) {

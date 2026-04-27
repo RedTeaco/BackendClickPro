@@ -24,11 +24,6 @@ impl ThreadManager {
         self.stop_notify.notify_waiters();
     }
 
-    /// 重置停止标志（开始新任务前调用）
-    pub fn reset(&self) {
-        self.stop_signal.store(false, Ordering::SeqCst);
-    }
-
     /// 检查是否有任务正在运行（通过停止标志取反）
     pub fn is_running(&self) -> bool {
         !self.stop_signal.load(Ordering::SeqCst)

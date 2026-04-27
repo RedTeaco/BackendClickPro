@@ -2,8 +2,6 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use serde::{Deserialize, Serialize};
-use crate::logic::events::events::{EventAction, InputEvent};
-use crate::logic::utils::utils::APP_DIR_NAME;
 
 fn data_dir() -> PathBuf {
     static DATA_DIR: OnceLock<PathBuf> = OnceLock::new();
@@ -77,13 +75,6 @@ impl Default for AppConfig {
     }
 }
 
-// pub fn get_config_path() -> PathBuf {
-//     let config_dir = dirs::config_dir().expect("Failed to get config directory");
-//     let app_dir = config_dir.join(APP_DIR_NAME);
-//     fs::create_dir_all(&app_dir).ok();
-//     app_dir.join("config.json")
-// }
-
 pub fn save_config(config: &AppConfig) -> Result<(), String> {
     let path = get_config_path();
     if let Some(parent) = path.parent() {
@@ -111,61 +102,6 @@ pub fn load_config() -> AppConfig {
         }
     AppConfig::default()
 }
-
-// pub fn input_event_to_stored(event: &InputEvent) -> StoredEvent {
-//     match event {
-//         InputEvent::Mouse { hwnd: _, btn, action, x, y} => {
-//             let (action_type, button, duration_ms, interval_ms, count, delta) = match action {
-//                 EventAction::Click { interval_ms, count } => {
-//                     ("click".to_string(), Some(btn.clone()), None, *interval_ms, *count, None)
-//                 }
-//                 EventAction::Hold { duration_ms, interval_ms, count } => {
-//                     ("hold".to_string(), Some(btn.clone()), Some(*duration_ms), *interval_ms, *count, None)
-//                 }
-//                 EventAction::Scroll { delta , interval_ms, count} => {
-//                     ("scroll".to_string(), Some("wheel".to_string()), None, *interval_ms, *count, Some(*delta))
-//                 }
-//             };
-//             StoredEvent {
-//                 event_type: "mouse".to_string(),
-//                 action_type,
-//                 button,
-//                 key: None,
-//                 x: *x,
-//                 y: *y,
-//                 delta,
-//                 duration_ms,
-//                 interval_ms,
-//                 count,
-//             }
-//         }
-//         InputEvent::Keyboard { hwnd: _, key, action} => {
-//             let (action_type, duration_ms, interval_ms, count) = match action {
-//                 EventAction::Click {interval_ms, count} => {
-//                     ("click".to_string(), None, *interval_ms, *count)
-//                 }
-//                 EventAction::Hold { duration_ms, interval_ms, count } => {
-//                     ("hold".to_string(), Some(*duration_ms), *interval_ms, *count)
-//                 }
-//                 EventAction::Scroll { .. } => {
-//                     ("unsupported".to_string(), None, 0, None)
-//                 }
-//             };
-//             StoredEvent {
-//                 event_type: "keyboard".to_string(),
-//                 action_type,
-//                 button: None,
-//                 key: Some(key.clone()),
-//                 x: None,
-//                 y: None,
-//                 delta: None,
-//                 duration_ms,
-//                 interval_ms,
-//                 count,
-//             }
-//         }
-//     }
-// }
 
 pub fn save_root_groups(groups: &Vec<serde_json::Value>) -> Result<(), String> {
     let path = get_groups_path();

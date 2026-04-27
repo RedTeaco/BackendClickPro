@@ -111,7 +111,7 @@
           <!-- 持续长按选项 -->
           <div v-if="form.actionType === 'longPress'" class="flex items-center gap-2 py-2 px-3 bg-slate-50 rounded-lg">
             <input type="checkbox" id="continuous" v-model="form.isContinuous" />
-            <label for="continuous" class="text-sm text-slate-600 cursor-pointer">持续长按（直到手动停止）</label>
+            <label for="continuous" class="text-sm text-slate-600 cursor-pointer">持续长按（直到手动停止）<small>期间请勿在窗口内使用键盘</small></label>
           </div>
 
           <!-- 非持续时显示的参数 -->

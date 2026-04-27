@@ -2,7 +2,7 @@ use std::thread;
 use std::time::Duration;
 use tauri::utils::assets::phf;
 use tauri::utils::assets::phf::phf_map;
-use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+use windows::Win32::Foundation::{LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_KEYDOWN, WM_KEYUP};
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 use crate::logic::utils::window_capture::handle_selected_window;

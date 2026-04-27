@@ -28,6 +28,9 @@
     h1, h2, h3, h4, h5, h6 {
         @apply font-headline text-brand-secondary font-bold tracking-tight;
     }
+    input {
+        @apply  border-slate-200 outline-sky-200 focus:outline-sky-300
+    }
 }
 
 @utility base-button {

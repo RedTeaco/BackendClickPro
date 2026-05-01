@@ -67,6 +67,8 @@ export const useEventStore = defineStore('event', () => {
     const expandedGroups = ref<Set<string>>(new Set(['default-root']));
     const selectedEventId = ref<string | null>(null);
 
+    const totalLoopCount = ref<number | null>(null);
+
     // ---------- 窗口操作 ----------
     async function fetchWindows() {
         availableWindows.value = await getWindows();
@@ -132,8 +134,8 @@ export const useEventStore = defineStore('event', () => {
             interval: data.interval ?? 1,
             duration: data.duration ?? 1,
             loopCount: data.loopCount ?? null,
-            coordinates: data.coordinates || { x: 0, y: 0 },
-            scrollDelta: data.scrollDelta ?? 0,
+            coordinates: data.coordinates,
+            scrollDelta: data.scrollDelta,
         };
         insertNode(newEvent, parentId);
     }
@@ -363,7 +365,9 @@ export const useEventStore = defineStore('event', () => {
             return { event:{ data: inputEvent } };
         }
 
-        return convert(activeRoot.value);
+        const rootPlan = convert(activeRoot.value);
+        if (totalLoopCount.value === 1) return rootPlan;
+        return {loop: {count: totalLoopCount.value, child:rootPlan}};
     }
 
     // ---------- 执行控制 ----------
@@ -393,20 +397,21 @@ export const useEventStore = defineStore('event', () => {
 
     // ---------- 持久化 ----------
     async function save() {
-        await saveRootGroups(rootGroups.value);
+        await saveRootGroups(rootGroups.value, totalLoopCount.value);
     }
 
     async function load() {
         loading.value = true;
         try {
             const groups = await loadRootGroups();
-            if (groups && groups.length) {
-                const normalized = groups.map(normalizeGroup);
+            if (groups.rootGroups && groups.rootGroups.length) {
+                const normalized = groups.rootGroups.map(normalizeGroup);
                 rootGroups.value = normalized;
                 activeRootId.value = normalized[0].id;
                 expandedGroups.value.clear();
                 normalized.forEach(g => expandedGroups.value.add(g.id));
             }
+            totalLoopCount.value = groups.totalLoopCount !== undefined ? groups.totalLoopCount : 1;
         }catch (err) {
             console.error('根组加载失败，使用默认方案',err);
         } finally {
@@ -414,7 +419,9 @@ export const useEventStore = defineStore('event', () => {
         }
     }
 
-    watch(rootGroups, () => {
+    function setTotalLoopCount(count: number | null) { totalLoopCount.value = count; }
+
+    watch([rootGroups, totalLoopCount], () => {
         save();
     }, {deep:true});
 
@@ -436,6 +443,7 @@ export const useEventStore = defineStore('event', () => {
         activeRoot,
         expandedGroups,
         selectedEventId,
+        totalLoopCount,
         // actions
         fetchWindows,
         selectWindow,
@@ -452,5 +460,6 @@ export const useEventStore = defineStore('event', () => {
         stop,
         save,
         load,
+        setTotalLoopCount,
     };
 });

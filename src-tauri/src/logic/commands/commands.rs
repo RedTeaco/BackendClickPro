@@ -1,5 +1,6 @@
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
+use serde_json::json;
 use tauri::{Emitter, State, Window};
 use crate::logic::events::execution_plan::{execute_node, ExecutionNode};
 use crate::logic::utils::{logger, storage};
@@ -44,7 +45,6 @@ pub fn stop_execution(thread_manager: State<'_, Mutex<ThreadManager>>) -> Result
     // 调用线程管理器的 stop 方法来停止执行
     manager.stop();
     Ok(())
-    //TODO 停止前触发所有事件的shutdown(抬起)
 }
 
 #[tauri::command]
@@ -54,13 +54,17 @@ pub fn get_execution_status(thread_manager: State<'_, Mutex<ThreadManager>>) -> 
 }
 
 #[tauri::command]
-pub fn save_root_groups(groups: Vec<serde_json::Value>) -> Result<(), String> {
-    storage::save_root_groups(&groups)
+pub fn save_root_groups(groups: Vec<serde_json::Value>, total_loop_count: Option<u32>) -> Result<(), String> {
+    storage::save_root_groups(&groups, total_loop_count)
 }
 
 #[tauri::command]
-pub fn load_root_groups() -> Result<Vec<serde_json::Value>, String> {
-    storage::load_root_groups()
+pub fn load_root_groups() -> Result<serde_json::Value, String> {
+    let (groups, total_loop_count) = storage::load_root_groups()?;
+    Ok(json!({
+        "rootGroups": groups,
+        "totalLoopCount": total_loop_count
+    }))
 }
 
 #[tauri::command]

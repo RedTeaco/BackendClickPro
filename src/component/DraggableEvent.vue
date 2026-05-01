@@ -128,9 +128,9 @@
               </div>
               <div v-if="event.coordinates" class="flex items-center gap-1 text-slate-600">
                 <LuMapPin class="w-3 h-3 text-slate-400" />
-                <span>({{ event.coordinates.x }}, {{ event.coordinates.y }})</span>
+                <span>({{ event.coordinates.x}}, {{ event.coordinates.y}})</span>
               </div>
-              <div v-if="event.scrollDelta !== undefined" class="flex items-center gap-1 text-slate-600">
+              <div v-if="event.scrollDelta" class="flex items-center gap-1 text-slate-600">
                 <LuMousePointer class="w-3 h-3 text-slate-400" />
                 <span>Delta {{ event.scrollDelta }}</span>
               </div>

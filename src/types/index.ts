@@ -8,7 +8,8 @@ export interface WindowInfo {
 
 export type ExecutionNode =
     | { event: { data: InputEvent }}
-    | { group: { mode: 'sync' | 'sequence'; children: ExecutionNode[] }};
+    | { group: { mode: 'sync' | 'sequence'; children: ExecutionNode[] }}
+    | { loop: { count: number | null; child: ExecutionNode }};
 
 export type InputEvent =
     | {

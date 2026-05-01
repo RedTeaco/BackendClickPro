@@ -41,6 +41,12 @@ impl Default for ShortcutConfig {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct GroupStorage {
+    total_loop_count: Option<u32>,
+    root_groups: Vec<serde_json::Value>,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct StoredEvent {
     pub event_type: String, // mouse | keyboard
@@ -62,7 +68,6 @@ pub struct AppConfig {
     pub mode: String, // 'sync' | 'sequence'
     pub max_logs: u32,
 }
-//TODO: 自定义数据存放目录
 
 impl Default for AppConfig {
     fn default() -> Self {
@@ -103,22 +108,32 @@ pub fn load_config() -> AppConfig {
     AppConfig::default()
 }
 
-pub fn save_root_groups(groups: &Vec<serde_json::Value>) -> Result<(), String> {
+pub fn save_root_groups(groups: &Vec<serde_json::Value>, total_loop_count: Option<u32>) -> Result<(), String> {
     let path = get_groups_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    let json = serde_json::to_string_pretty(groups).map_err(|e| e.to_string())?;
+    let storage = GroupStorage {
+        total_loop_count,
+        root_groups: groups.clone(),
+    };
+    let json = serde_json::to_string_pretty(&storage).map_err(|e| e.to_string())?;
     fs::write(path, json).map_err(|e| e.to_string())
 }
 
-pub fn load_root_groups() -> Result<Vec<serde_json::Value>, String> {
+pub fn load_root_groups() -> Result<(Vec<serde_json::Value>,Option<u32>), String> {
     let path = get_groups_path();
     if path.exists() {
         let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
-        serde_json::from_str(&content).map_err(|e| e.to_string())
+        if let Ok(storage) = serde_json::from_str::<GroupStorage>(&content) {
+            return Ok((storage.root_groups, storage.total_loop_count));
+        }
+        if let Ok(groups) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+            return Ok((groups, Some(1)));
+        }
+        Err("格式错误".to_string())
     } else {
-        Ok(vec![])
+        Ok((vec![], Some(1)))
     }
 }
 

@@ -46,6 +46,29 @@
           方案
         </button>
 
+        <!-- 新增总循环次数 -->
+        <div class="flex items-center gap-2 ml-2">
+          <label class="text-sm text-gray-600">总循环:</label>
+          <input
+              type="number"
+              v-model.number="loopCount"
+              min="1"
+              step="1"
+              class="w-20 px-2 py-1 border rounded text-sm"
+              :disabled="store.isRunning"
+          />
+          <button
+              v-if="loopCount === null"
+              @click="loopCount = 1"
+              class="base-button text-xs border border-gray-200 hover:bg-gray-100"
+          >取消无限</button>
+          <button
+              v-else
+              @click="loopCount = null"
+              class="base-button text-xs border border-gray-200 hover:bg-gray-100"
+          >无限</button>
+        </div>
+
         <button class="base-button ml-auto bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
                 @click="showSettings = true"
                 :disabled="store.isRunning"
@@ -85,7 +108,7 @@
 
 <script setup lang="ts">
 // ----------- 前端js --------------
-import {ref, onMounted} from 'vue';
+import {ref, onMounted, computed} from 'vue';
 import { LuPlay,
   LuSquare,
   LuSettings,
@@ -108,6 +131,11 @@ const formVisible = ref(false);
 const editingEvent = ref<EventTreeNode | null>(null);
 const isGroupForm = ref(false);
 const parentId = ref<string | undefined>();
+
+const loopCount = computed({
+  get: () => store.totalLoopCount,
+  set: (val: number | null) => store.setTotalLoopCount(val),
+});
 
 function openForm(isGroup: boolean, pid?: string) {
   editingEvent.value = null;

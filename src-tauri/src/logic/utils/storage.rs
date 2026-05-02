@@ -1,17 +1,19 @@
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::OnceLock;
-use serde::{Deserialize, Serialize};
 
 fn data_dir() -> PathBuf {
     static DATA_DIR: OnceLock<PathBuf> = OnceLock::new();
-    DATA_DIR.get_or_init(|| {
-        let exe_path = std::env::current_exe().expect("无法获取可执行文件路径");
-        let exe_dir = exe_path.parent().expect("无法获取可执行文件目录");
-        let dir = exe_dir.join("data");
-        fs::create_dir_all(&dir).ok();
-        dir
-    }).clone()
+    DATA_DIR
+        .get_or_init(|| {
+            let exe_path = std::env::current_exe().expect("无法获取可执行文件路径");
+            let exe_dir = exe_path.parent().expect("无法获取可执行文件目录");
+            let dir = exe_dir.join("data");
+            fs::create_dir_all(&dir).ok();
+            dir
+        })
+        .clone()
 }
 
 pub fn get_config_path() -> PathBuf {
@@ -49,7 +51,7 @@ pub struct GroupStorage {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct StoredEvent {
-    pub event_type: String, // mouse | keyboard
+    pub event_type: String,  // mouse | keyboard
     pub action_type: String, // click | hold | scroll
     pub button: Option<String>,
     pub key: Option<String>,
@@ -58,23 +60,19 @@ pub struct StoredEvent {
     pub delta: Option<i32>,
     pub duration_ms: Option<u64>,
     pub interval_ms: u64,
-    pub count:Option<u32>,
+    pub count: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct AppConfig {
     pub shortcuts: ShortcutConfig,
-    pub events: Vec<StoredEvent>,
-    pub mode: String, // 'sync' | 'sequence'
     pub max_logs: u32,
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            shortcuts:ShortcutConfig::default(),
-            events: Vec::new(),
-            mode: "sync".to_string(),
+            shortcuts: ShortcutConfig::default(),
             max_logs: 20,
         }
     }
@@ -99,16 +97,19 @@ pub fn load_config() -> AppConfig {
                 } else {
                     eprintln!("Failed to parse config file: {}, using default", content);
                 }
-            },
+            }
             Err(e) => {
-            eprintln!("Failed to read config file: {}", e)
+                eprintln!("Failed to read config file: {}", e)
             }
         }
-        }
+    }
     AppConfig::default()
 }
 
-pub fn save_root_groups(groups: &Vec<serde_json::Value>, total_loop_count: Option<u32>) -> Result<(), String> {
+pub fn save_root_groups(
+    groups: &Vec<serde_json::Value>,
+    total_loop_count: Option<u32>,
+) -> Result<(), String> {
     let path = get_groups_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -121,7 +122,7 @@ pub fn save_root_groups(groups: &Vec<serde_json::Value>, total_loop_count: Optio
     fs::write(path, json).map_err(|e| e.to_string())
 }
 
-pub fn load_root_groups() -> Result<(Vec<serde_json::Value>,Option<u32>), String> {
+pub fn load_root_groups() -> Result<(Vec<serde_json::Value>, Option<u32>), String> {
     let path = get_groups_path();
     if path.exists() {
         let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
@@ -135,6 +136,16 @@ pub fn load_root_groups() -> Result<(Vec<serde_json::Value>,Option<u32>), String
     } else {
         Ok((vec![], Some(1)))
     }
+}
+
+pub fn save_shortcuts(shortcuts: ShortcutConfig) -> Result<(), String> {
+    let mut config = load_config();
+    config.shortcuts = shortcuts.clone();
+    save_config(&config)
+}
+
+pub fn load_shortcuts() -> ShortcutConfig {
+    load_config().shortcuts
 }
 
 pub fn get_data_dir() -> PathBuf {

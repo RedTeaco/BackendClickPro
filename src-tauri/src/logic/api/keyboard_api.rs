@@ -1,11 +1,11 @@
+use crate::logic::utils::window_capture::handle_selected_window;
 use std::thread;
 use std::time::Duration;
 use tauri::utils::assets::phf;
 use tauri::utils::assets::phf::phf_map;
 use windows::Win32::Foundation::{LPARAM, WPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_KEYDOWN, WM_KEYUP};
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
-use crate::logic::utils::window_capture::handle_selected_window;
+use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_KEYDOWN, WM_KEYUP};
 
 static KEY_MAP: phf::Map<&'static str, u16> = phf_map! {
     // ========== 功能键 F1-F24 ==========
@@ -118,25 +118,25 @@ fn code_to_vk(code: &str) -> Option<u16> {
     if let Some(&vk) = KEY_MAP.get(code) {
         return Some(vk);
     }
-        // 字母键: "KeyA" -> VK_A
-        if code.starts_with("Key") && code.len() == 4 {
-            let letter = code.chars().nth(3)?;
-            if letter.is_ascii_uppercase() {
-                return Some(letter as u16);
-            }
+    // 字母键: "KeyA" -> VK_A
+    if code.starts_with("Key") && code.len() == 4 {
+        let letter = code.chars().nth(3)?;
+        if letter.is_ascii_uppercase() {
+            return Some(letter as u16);
         }
-        // 数字键 "Digit1"  -> VK_1
-        if code.starts_with("Digit") && code.len() == 6 {
-            let digit_char = code.chars().nth(5)?;
-            if digit_char.is_ascii_digit() {
-                return Some(digit_char as u16)
-            }
+    }
+    // 数字键 "Digit1"  -> VK_1
+    if code.starts_with("Digit") && code.len() == 6 {
+        let digit_char = code.chars().nth(5)?;
+        if digit_char.is_ascii_digit() {
+            return Some(digit_char as u16);
         }
-        None
+    }
+    None
 }
 
 fn get_scan_code(vk: u16) -> u32 {
-    unsafe { MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC)}
+    unsafe { MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC) }
 }
 
 pub(crate) fn keyboard_down(hwnd_u: usize, key_code: &str) -> windows::core::Result<()> {
@@ -150,7 +150,13 @@ pub(crate) fn keyboard_down(hwnd_u: usize, key_code: &str) -> windows::core::Res
     let scan_code = get_scan_code(vk.unwrap());
     let lparam = ((scan_code) << 16) | 1;
     unsafe {
-        PostMessageW(hwnd.into(), WM_KEYDOWN, WPARAM(vk.unwrap() as usize), LPARAM(lparam as isize)).expect("failed to post keydown message");
+        PostMessageW(
+            hwnd.into(),
+            WM_KEYDOWN,
+            WPARAM(vk.unwrap() as usize),
+            LPARAM(lparam as isize),
+        )
+        .expect("failed to post keydown message");
     }
     Ok(())
 }
@@ -166,7 +172,13 @@ pub(crate) fn keyboard_up(hwnd_u: usize, key_code: &str) -> windows::core::Resul
     let scan_code = get_scan_code(vk.unwrap());
     let lparam = ((scan_code) << 16) | 0xC0000001;
     unsafe {
-        PostMessageW(hwnd.into(), WM_KEYUP, WPARAM(vk.unwrap() as usize), LPARAM(lparam as isize)).expect("failed to post keyup message");
+        PostMessageW(
+            hwnd.into(),
+            WM_KEYUP,
+            WPARAM(vk.unwrap() as usize),
+            LPARAM(lparam as isize),
+        )
+        .expect("failed to post keyup message");
     }
     Ok(())
 }

@@ -1,14 +1,14 @@
+use crate::logic::utils::storage;
+use flate2::write::GzEncoder;
+use flate2::Compression;
+use lazy_static::lazy_static;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use flate2::Compression;
-use flate2::write::GzEncoder;
-use lazy_static::lazy_static;
 use tar::Builder;
-use crate::logic::utils::storage;
 
 pub struct Logger {
     current_log_path: PathBuf,
@@ -32,7 +32,7 @@ impl Logger {
         }
     }
 
-    pub fn log(&self, message: &str) -> Result<(), String>{
+    pub fn log(&self, message: &str) -> Result<(), String> {
         let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
         let log_line = format!("[{}] {}\n", timestamp, message);
 
@@ -42,7 +42,8 @@ impl Logger {
             .open(&self.current_log_path)
             .map_err(|e| e.to_string())?;
 
-        file.write_all(log_line.as_bytes()).map_err(|e| e.to_string())?;
+        file.write_all(log_line.as_bytes())
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 
@@ -61,9 +62,7 @@ impl Logger {
             })
             .collect();
 
-        log_files.sort_by_key(|path| {
-            fs::metadata(path).and_then(|m| m.modified()).ok()
-        });
+        log_files.sort_by_key(|path| fs::metadata(path).and_then(|m| m.modified()).ok());
 
         while log_files.len() > self.max_logs as usize {
             if let Some(oldest) = log_files.first() {
@@ -82,7 +81,11 @@ impl Logger {
         let mut tar_builder = Builder::new(gz_encoder);
 
         let file_name = log_path.file_name().unwrap().to_str().unwrap();
-        tar_builder.append_file(file_name, &mut File::open(log_path).map_err(|e| e.to_string())?)
+        tar_builder
+            .append_file(
+                file_name,
+                &mut File::open(log_path).map_err(|e| e.to_string())?,
+            )
             .map_err(|e| e.to_string())?;
 
         tar_builder.finish().map_err(|e| e.to_string())?;
@@ -90,7 +93,7 @@ impl Logger {
     }
 }
 
-lazy_static!{
+lazy_static! {
     static ref LOGGER: Mutex<Logger> = Mutex::new(Logger::new(100));
 }
 

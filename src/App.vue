@@ -21,7 +21,7 @@
       </div>
       <div class="flex gap-2 px-4 py-3 bg-white border-b border-slate-100">
         <button
-        @click="store.isRunning ? store.stop() : store.run()"
+        @click="store.toggleRun"
         class="base-button start-button"
         :class="{'start-button-running' : store.isRunning }"
         >
@@ -122,6 +122,8 @@ import SettingsModal from '@/component/SettingsModal.vue';
 import type {EventItemNode, EventTreeNode} from '@/types';
 import MarqueeText from "@/component/MarqueeText.vue";
 import WindowsCaptureModal from "@/component/WindowsCaptureModal.vue";
+import {loadShortcuts} from "@/services/tauri.ts";
+import {register} from "@tauri-apps/plugin-global-shortcut";
 
 const store = useEventStore();
 const showWindowCapture = ref<boolean>(false);
@@ -170,8 +172,24 @@ function handleSave(data: Partial<EventTreeNode>) {
   closeForm();
 }
 
+async function initGlobalShortcut() {
+  try {
+    const {start_stop} = await loadShortcuts();
+    if (start_stop) {
+      await register(start_stop, event => {
+        if (event.state === 'Pressed') {
+          store.toggleRun();
+        }
+      });
+    }
+  } catch (err) {
+    console.error('初始化快捷键失败',err)
+  }
+}
+
 onMounted(async () => {
   await store.load();      // 加载保存的根组
+  await initGlobalShortcut();
 });
 </script>
 <style scoped>

@@ -1,7 +1,7 @@
 // src-tauri/logic/utils/thread_manager.rs
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tokio::sync::Notify;
 
 /// 线程管理器：提供停止信号和通知，用于跨任务协调

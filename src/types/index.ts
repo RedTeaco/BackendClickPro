@@ -6,6 +6,11 @@ export interface WindowInfo {
     is_minimized: boolean;
 }
 
+export type ShortcutConfig = {
+    start_stop: string,
+    capture_window: string
+}
+
 export type ExecutionNode =
     | { event: { data: InputEvent }}
     | { group: { mode: 'sync' | 'sequence'; children: ExecutionNode[] }}

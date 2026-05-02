@@ -395,6 +395,11 @@ export const useEventStore = defineStore('event', () => {
         isRunning.value = false;
     }
 
+    function toggleRun() {
+        console.log("isRunning:",isRunning.value)
+        isRunning.value ? stop() : run()
+    }
+
     // ---------- 持久化 ----------
     async function save() {
         await saveRootGroups(rootGroups.value, totalLoopCount.value);
@@ -458,6 +463,7 @@ export const useEventStore = defineStore('event', () => {
         toggleExpand,
         run,
         stop,
+        toggleRun,
         save,
         load,
         setTotalLoopCount,

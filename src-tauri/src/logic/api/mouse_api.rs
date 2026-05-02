@@ -1,13 +1,16 @@
-use windows::Win32::Foundation::{LPARAM, WPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_XBUTTONDOWN, WM_XBUTTONUP};
 use crate::logic::utils::window_capture::handle_selected_window;
+use windows::Win32::Foundation::{LPARAM, WPARAM};
+use windows::Win32::UI::WindowsAndMessaging::{
+    PostMessageW, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEWHEEL,
+    WM_RBUTTONDOWN, WM_RBUTTONUP, WM_XBUTTONDOWN, WM_XBUTTONUP,
+};
 
 pub const XBUTTON1: u16 = 0x0001;
 pub const XBUTTON2: u16 = 0x0002;
 
 macro_rules! MAKELPARAM {
     ($low:expr, $high:expr) => {
-        ((($low & 0xffff) as u32) | (($high & 0xffff) as u32) << 16 ) as _
+        ((($low & 0xffff) as u32) | (($high & 0xffff) as u32) << 16) as _
     };
 }
 
@@ -31,7 +34,6 @@ fn mouse_send_message(
     Ok(())
 }
 
-
 /// 执行鼠标操作
 ///
 /// # 参数
@@ -50,7 +52,7 @@ pub fn mouse_action(
     action: &str,
     x: Option<i32>,
     y: Option<i32>,
-    delta: Option<i32>
+    delta: Option<i32>,
 ) -> windows::core::Result<()> {
     // 设置默认坐标值
     let x = x.unwrap_or(0);
@@ -59,7 +61,7 @@ pub fn mouse_action(
     // 根据按钮类型和操作类型匹配执行不同的鼠标操作
     match (button, action) {
         // 滚轮操作
-        ("wheel", _ ) => {
+        ("wheel", _) => {
             let delta = delta.unwrap_or(0);
             // 将滚轮偏移量转换为Windows消息格式
             let wparam = WPARAM((((delta as u32) << 16) & 0xFFFF0000) as usize);
@@ -86,7 +88,11 @@ pub fn mouse_action(
         }
         // 侧键
         (btn, act) if btn == "xbutton1" || btn == "xbutton2" => {
-            let xbutton = if btn == "xbutton1" {XBUTTON1} else {XBUTTON2};
+            let xbutton = if btn == "xbutton1" {
+                XBUTTON1
+            } else {
+                XBUTTON2
+            };
             let wparam = WPARAM((((xbutton as u32) << 16) | 0xFFFF0000) as usize);
             match act {
                 "down" => mouse_send_message(hwnd, WM_XBUTTONDOWN, wparam, x, y)?,

@@ -1,21 +1,21 @@
 use std::ffi::c_void;
 use windows::core::BOOL;
 use windows::Win32::Foundation::{HWND, LPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowLongW, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow, IsWindowVisible, GWL_EXSTYLE, WS_EX_TOOLWINDOW};
+use windows::Win32::UI::WindowsAndMessaging::{
+    EnumWindows, GetWindowLongW, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
+    IsIconic, IsWindow, IsWindowVisible, GWL_EXSTYLE, WS_EX_TOOLWINDOW,
+};
 
 #[derive(Debug, serde::Serialize)]
 pub struct WindowInfo {
-    hwnd: usize, // 窗口句柄
-    title: String, // 窗口标题
-    process_id: u32, // 窗口进程ID
+    hwnd: usize,        // 窗口句柄
+    title: String,      // 窗口标题
+    process_id: u32,    // 窗口进程ID
     is_minimized: bool, // 窗口是否最小化
 }
 
 // 枚举所有顶级窗口，回调函数
-unsafe extern "system" fn enum_windows_proc(
-    hwnd: HWND,
-    lparam: LPARAM,
-) -> BOOL {
+unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let windows = &mut *(lparam.0 as *mut Vec<WindowInfo>);
 
     // 检查窗口是否可见

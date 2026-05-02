@@ -1,10 +1,10 @@
+use crate::logic::events::execution_plan::{execute_node, ExecutionNode};
+use crate::logic::utils::thread_manager::ThreadManager;
+use crate::logic::utils::{logger, storage};
+use serde_json::json;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
-use serde_json::json;
 use tauri::{Emitter, State, Window};
-use crate::logic::events::execution_plan::{execute_node, ExecutionNode};
-use crate::logic::utils::{logger, storage};
-use crate::logic::utils::thread_manager::{ThreadManager};
 
 #[tauri::command]
 pub async fn execute_plan(
@@ -23,7 +23,7 @@ pub async fn execute_plan(
 
     tokio::spawn(async move {
         execute_node(&plan, &stop_sig, &stop_noti).await;
-        let _ = window.emit("execution-completed",());
+        let _ = window.emit("execution-completed", ());
     });
     // 等待任务完成（无论是正常结束还是因停止信号退出）
     Ok(())
@@ -54,7 +54,10 @@ pub fn get_execution_status(thread_manager: State<'_, Mutex<ThreadManager>>) -> 
 }
 
 #[tauri::command]
-pub fn save_root_groups(groups: Vec<serde_json::Value>, total_loop_count: Option<u32>) -> Result<(), String> {
+pub fn save_root_groups(
+    groups: Vec<serde_json::Value>,
+    total_loop_count: Option<u32>,
+) -> Result<(), String> {
     storage::save_root_groups(&groups, total_loop_count)
 }
 
@@ -69,31 +72,12 @@ pub fn load_root_groups() -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 pub fn save_shortcuts(shortcuts: storage::ShortcutConfig) -> Result<(), String> {
-    let mut config = storage::load_config();
-    config.shortcuts = shortcuts;
-    storage::save_config(&config)
+    storage::save_shortcuts(shortcuts)
 }
 
 #[tauri::command]
 pub fn load_shortcuts() -> Result<storage::ShortcutConfig, String> {
-    let config = storage::load_config();
-    Ok(config.shortcuts)
-}
-
-#[tauri::command]
-    // 加载现有的配置文件 deprecated
-pub fn save_mode(mode: String) -> Result<(), String> {
-    // 更新配置中的模式字段
-    let mut config = storage::load_config();
-    // 保存更新后的配置
-    config.mode = mode;
-    storage::save_config(&config)
-}
-
-#[tauri::command]
-pub fn load_mode() -> Result<String, String> {
-    let config = storage::load_config();
-    Ok(config.mode)
+    Ok(storage::load_shortcuts())
 }
 
 // ========= 日志命令 ==========
@@ -105,5 +89,3 @@ pub fn log_message(message: String) -> Result<(), String> {
 
 // ======== 权限命令 ==========
 //TODO 前端提供以管理员身份启动的弹窗
-
-

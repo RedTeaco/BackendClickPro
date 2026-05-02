@@ -1,27 +1,34 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use async_recursion::async_recursion;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tokio::sync::Notify;
 use tokio::task;
-use async_recursion::async_recursion;
 
 use crate::logic::events::events::{execute_event, InputEvent};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ExecutionNode {
-    #[serde(rename="event")]
-    Event {data: InputEvent},
-    #[serde(rename="group")]
+    #[serde(rename = "event")]
+    Event { data: InputEvent },
+    #[serde(rename = "group")]
     Group {
-    mode: String,  // sync or sequence
-    children: Vec<ExecutionNode>,
+        mode: String, // sync or sequence
+        children: Vec<ExecutionNode>,
     },
-    #[serde(rename="loop")]
-    Loop {count: Option<u32>, child: Box<ExecutionNode>},
+    #[serde(rename = "loop")]
+    Loop {
+        count: Option<u32>,
+        child: Box<ExecutionNode>,
+    },
 }
 
 #[async_recursion]
-pub async fn execute_node(node: &ExecutionNode, stop_signal: &Arc<AtomicBool>, stop_notify: &Arc<Notify>) {
+pub async fn execute_node(
+    node: &ExecutionNode,
+    stop_signal: &Arc<AtomicBool>,
+    stop_notify: &Arc<Notify>,
+) {
     println!("[DEBUG] execute_node 进入，节点类型: {:?}", node);
     match node {
         ExecutionNode::Event { data } => {
@@ -56,24 +63,24 @@ pub async fn execute_node(node: &ExecutionNode, stop_signal: &Arc<AtomicBool>, s
                         execute_node(child, &stop_signal.clone(), &stop_notify.clone()).await;
                     }
                 }
-                _ => eprintln!("[execute_node] Unknown group mode: {}", mode)
+                _ => eprintln!("[execute_node] Unknown group mode: {}", mode),
             }
         }
-        ExecutionNode::Loop { count, child } => {
-            match count {
-                Some(c) => {
-                    for _ in 0..*c {
-                        if stop_signal.load(Ordering::SeqCst) { break; }
-                        execute_node(child, stop_signal, stop_notify).await;
+        ExecutionNode::Loop { count, child } => match count {
+            Some(c) => {
+                for _ in 0..*c {
+                    if stop_signal.load(Ordering::SeqCst) {
+                        break;
                     }
-                },
-                None => {
-                    loop {
-                        if stop_signal.load(Ordering::SeqCst) { break; }
-                        execute_node(child, stop_signal, stop_notify).await;
-                    }
+                    execute_node(child, stop_signal, stop_notify).await;
                 }
             }
-        }
+            None => loop {
+                if stop_signal.load(Ordering::SeqCst) {
+                    break;
+                }
+                execute_node(child, stop_signal, stop_notify).await;
+            },
+        },
     }
 }

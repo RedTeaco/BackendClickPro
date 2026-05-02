@@ -1,8 +1,11 @@
+use crate::logic::commands::commands::{
+    execute_plan, get_execution_status, load_root_groups, load_shortcuts, log_message,
+    save_root_groups, save_shortcuts, stop_execution,
+};
+use crate::logic::utils::thread_manager::ThreadManager;
+use crate::logic::utils::window_capture::get_windows;
 use std::sync::Mutex;
 use tauri::Manager;
-use crate::logic::commands::commands::{get_execution_status, save_root_groups, load_root_groups, execute_plan, save_mode, load_mode, save_shortcuts, load_shortcuts, log_message, stop_execution};
-use crate::logic::utils::thread_manager::{ThreadManager};
-use crate::logic::utils::window_capture::get_windows;
 use tauri_plugin_decorum::WebviewWindowExt;
 
 mod logic;
@@ -11,6 +14,7 @@ mod logic;
 pub fn run() {
     let thread_manager = ThreadManager::new(); // 全局唯一
     tauri::Builder::default()
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(Mutex::new(thread_manager))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_decorum::init())
@@ -21,8 +25,15 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_windows,
-            stop_execution, get_execution_status,
-            save_root_groups, load_root_groups, execute_plan, save_shortcuts, load_shortcuts, log_message, save_mode, load_mode])
+            stop_execution,
+            get_execution_status,
+            save_root_groups,
+            load_root_groups,
+            execute_plan,
+            save_shortcuts,
+            load_shortcuts,
+            log_message
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

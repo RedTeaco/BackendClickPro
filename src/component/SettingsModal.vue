@@ -1,3 +1,39 @@
+<template>
+  <div class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-lg w-125 max-h-[80vh] overflow-auto border border-slate-200">
+      <div class="flex flex-col items-center justify-between px-5 py-4 border-b border-slate-100 gap-4">
+        <div class="flex items-center justify-between w-full">
+          <h3 class="text-base text-slate-700">设置</h3>
+          <button @click="$emit('close')" class="p-1.5  rounded-lg hover:bg-brand-stop hover:text-white cursor-pointer">
+            <LuX size="16" />
+          </button>
+        </div>
+        <div class="flex flex-col justify-center gap-2 border border-gray-100 w-full">
+          <h4>快捷键设置</h4>
+          <div class="flex flex-nowrap items-center justify-between gap-2">
+            <div class="flex flex-nowrap gap-2 items-center">
+              <label>开始/停止</label>
+              <input
+                  type="text"
+                  v-model="shortcutInput"
+                  @focus="startRecording"
+                  @blur="stopRecording"
+                  @keydown="handleKeyDown"
+                  placeholder="点击后按下快捷键"
+                  class="border border-gray-300 rounded-lg px-2 py-1 w-25"
+              />
+            </div>
+            <div class="self-end flex flex-nowrap gap-2 items-center">
+              <button class="base-button border border-rose-200 bg-rose-50 hover:bg-rose-100" @click="resetShortcut">恢复默认</button>
+              <button class="base-button border border-indigo-200 bg-indigo-50 hover:bg-indigo-100" @click="saveShortcut">保存</button>
+            </div>
+          </div>
+        </div>
+        <button @click="$emit('close')" class="base-button bg-indigo-500 hover:bg-indigo-400 text-white">确定</button>
+      </div>
+    </div>
+  </div>
+</template>
 <script setup lang="ts">
 import {LuX} from 'vue-icons-plus/lu';
 import {useEventStore} from "@/stores/app.ts";
@@ -117,8 +153,8 @@ async function saveShortcut() {
 }
 
 function resetShortcut(){
-    shortcutInput.value = 'F8';
-    applyShortcut(shortcutInput.value);
+  shortcutInput.value = 'F8';
+  applyShortcut(shortcutInput.value);
 }
 
 async function loadShortcutSettings() {
@@ -145,38 +181,5 @@ onUnmounted(() => {
 });
 
 </script>
-
-<template>
-  <div class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl shadow-lg w-125 max-h-[80vh] overflow-auto border border-slate-200">
-      <div class="flex flex-col items-center justify-between px-5 py-4 border-b border-slate-100 gap-4">
-        <div class="flex items-center justify-between w-full">
-          <h3 class="text-base text-slate-700">设置</h3>
-          <button @click="$emit('close')" class="p-1.5  rounded-lg hover:bg-brand-stop hover:text-white cursor-pointer">
-            <LuX size="16" />
-          </button>
-        </div>
-        <div class="flex flex-col justify-center gap-2 border border-gray-100">
-          <h4>快捷键设置</h4>
-          <div class="flex items-center justify-center gap-2">
-            <input
-                type="text"
-                v-model="shortcutInput"
-                @focus="startRecording"
-                @blur="stopRecording"
-                @keydown="handleKeyDown"
-                placeholder="点击后按下快捷键"
-                class="border border-gray-300 rounded-lg px-2 py-1"
-            />
-            <button class="base-button border border-rose-200 bg-rose-50 hover:bg-rose-100" @click="resetShortcut">恢复默认</button>
-            <button class="base-button border border-indigo-200 bg-indigo-50 hover:bg-indigo-100" @click="saveShortcut">保存</button>
-          </div>
-        </div>
-        <button @click="$emit('close')" class="base-button bg-indigo-500 hover:bg-indigo-400 text-white">确定</button>
-      </div>
-    </div>
-  </div>
-</template>
-
 <style scoped>
 </style>

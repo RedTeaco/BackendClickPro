@@ -35,15 +35,15 @@
           捕捉窗口
         </button>
         <!-- 根组管理 -->
-        <select v-model="store.activeRootId" class="px-3 py-1.5 border rounded-lg text-sm min-w-32">
-          <option v-for="g in store.rootGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
-        </select>
+<!--        <select v-model="store.activeRootId" class="px-3 py-1.5 border rounded-lg text-sm min-w-32">-->
+<!--          <option v-for="g in store.rootGroups" :key="g.id" :value="g.id">{{ g.name }}</option>-->
+<!--        </select>-->
         <button
-            @click="store.addRootGroup('新方案')"
+            @click="showSchemesManager = true"
             class="base-button bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200"
         >
-          <LuPlus size="16" />
-          方案
+          <LuLayers size="16" />
+          方案管理
         </button>
 
         <!-- 新增总循环次数 -->
@@ -103,6 +103,7 @@
         v-if="showSettings"
         @close="showSettings = false" />
     <WindowsCaptureModal v-if="showWindowCapture" @close="showWindowCapture = false" />
+    <SchemesManagerModal v-if="showSchemesManager" @close="showSchemesManager = false" />
   </div>
 </template>
 
@@ -113,7 +114,7 @@ import { LuPlay,
   LuSquare,
   LuSettings,
   LuBoxSelect,
-  LuPlus
+  LuLayers
 } from 'vue-icons-plus/lu';
 import { useEventStore } from '@/stores/app';
 import EventList from '@/component/EventList.vue';
@@ -124,10 +125,12 @@ import MarqueeText from "@/component/MarqueeText.vue";
 import WindowsCaptureModal from "@/component/WindowsCaptureModal.vue";
 import {loadShortcuts} from "@/services/tauri.ts";
 import {register} from "@tauri-apps/plugin-global-shortcut";
+import SchemesManagerModal from "@/component/SchemesManagerModal.vue";
 
 const store = useEventStore();
 const showWindowCapture = ref<boolean>(false);
 const showSettings = ref(false);
+const showSchemesManager = ref(false);
 
 const formVisible = ref(false);
 const editingEvent = ref<EventTreeNode | null>(null);

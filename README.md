@@ -40,7 +40,4 @@ This template should help get you started developing with Vue 3 and TypeScript i
 
 # TODO
 - [ ] 鼠标坐标捕捉
-- [ ] 热键(快捷键)设置
 - [ ] 管理员启动
-- [ ] 启动加载问题pinia
-- [ ] 清理代码，发布beta-1.0

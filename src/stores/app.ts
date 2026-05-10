@@ -104,6 +104,11 @@ export const useEventStore = defineStore('event', () => {
         }
     }
 
+    function renameRootGroup(id: string, name:string) {
+        const group = rootGroups.value.find(g => g.id === id);
+        if (group) group.name = name;
+    }
+
     // ---------- 树操作（增删改移）针对 activeRoot ----------
     // 添加分组节点
     function addGroup(data: Partial<GroupTreeNode>, parentId?: string) {
@@ -454,6 +459,7 @@ export const useEventStore = defineStore('event', () => {
         selectWindow,
         addRootGroup,
         deleteRootGroup,
+        renameRootGroup,
         addGroup,
         addEventItem,
         updateEvent,

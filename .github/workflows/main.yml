@@ -37,18 +37,12 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
-          
-      - name: Clean previous builds  # 新增这一步
-        run: |
-          cd src-tauri
-          cargo clean
-          rm -rf target
 
       - name: install frontend dependencies
         # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.
         run: yarn install # change this to npm or pnpm depending on which one you use.
 
-      - uses: tauri-apps/tauri-action@v2
+      - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

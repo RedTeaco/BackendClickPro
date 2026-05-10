@@ -37,6 +37,12 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
+          
+      - name: Clean previous builds  # 新增这一步
+        run: |
+          cd src-tauri
+          cargo clean
+          rm -rf target
 
       - name: install frontend dependencies
         # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.

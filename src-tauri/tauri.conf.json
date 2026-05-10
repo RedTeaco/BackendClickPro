@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "backendclick_lite",
-  "version": "0.1.0",
-  "identifier": "tk.redtea.backendclicklite",
+  "productName": "backendclick",
+  "version": "0.1.0-beta",
+  "identifier": "tk.redtea.backendclick",
   "build": {
     "beforeDevCommand": "yarn dev",
     "devUrl": "http://localhost:1420",
